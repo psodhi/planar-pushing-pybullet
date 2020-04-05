@@ -31,6 +31,11 @@ class EnvKukaBlock():
         self.dt = params['dt']
         self.sim_length = np.int((self.tend - self.tstart) / self.dt)
 
+        self.init_ee_pos = params['init_ee_pos']
+        self.init_ee_ori = params['init_ee_ori']
+        self.init_obj_pos = params['init_obj_pos']
+        self.init_obj_ori = params['init_obj_ori']
+
         self.logger = Logger(params)
 
         # set additional path to access bullet lib models
@@ -48,13 +53,11 @@ class EnvKukaBlock():
 
         # add object being pushed
         self.obj_id = pb.loadURDF("../models/objects/block.urdf")
-        self.reset_obj_pos = [-0.4, 0, 0.1]
-        self.reset_obj_ori = [0, 0, 0, 1]
         pb.resetBasePositionAndOrientation(
-            self.obj_id, self.reset_obj_pos, self.reset_obj_ori)
+            self.obj_id, self.init_obj_pos, self.init_obj_ori)
 
         # set gravity
-        pb.setGravity(0, 0, -9.8)
+        pb.setGravity(0, 0, -10)
 
         # set/get arm params
         self.kuka_ee_idx = 6
@@ -69,10 +72,6 @@ class EnvKukaBlock():
                                    math.pi, 0, -math.pi * 0.5 * 0.66, 0]
         for i in range(self.num_joints):
             pb.resetJointState(self.kuka_id, i, self.reset_joint_states[i])
-
-        # set initial end effector pose
-        self.init_ee_pos = [-0.4, -0.2, 0.01]
-        self.init_ee_ori = pb.getQuaternionFromEuler([0, -math.pi, 0])
 
     def set_gui_params(self):
         cam_tgt_pos = [-0.5, 0.32, -0.15]
@@ -91,7 +90,6 @@ class EnvKukaBlock():
         contact_info = pb.getContactPoints(self.kuka_id, self.obj_id)
         link_state = pb.getLinkState(self.kuka_id, self.kuka_ee_idx)
         obj_pose = pb.getBasePositionAndOrientation(self.obj_id)
-        # obj_ori_rpy = pb.getEulerFromQuaternion(obj_pose[1])
 
         # store in logger object
         self.logger.t[tstep, :] = self.tstart + tstep * self.dt
@@ -99,6 +97,8 @@ class EnvKukaBlock():
         self.logger.ee_ori[tstep, :] = link_state[1]
         self.logger.obj_pos[tstep, :] = obj_pose[0]
         self.logger.obj_ori[tstep, :] = obj_pose[1]
+        self.logger.obj_ori_rpy[tstep, :] = pb.getEulerFromQuaternion(
+            self.logger.obj_ori[tstep, :])
         if (len(contact_info) > 0):
             self.logger.contact_flag[tstep, :] = 1
             self.logger.contact_pos_onA[tstep, :] = contact_info[0][5]
@@ -115,9 +115,30 @@ class EnvKukaBlock():
 
         # reset block pose
         pb.resetBasePositionAndOrientation(
-            self.obj_id, self.reset_obj_pos, self.reset_obj_ori)
+            self.obj_id, self.init_obj_pos, self.init_obj_ori)
 
-    def simulate(self):
+    def simulate(self, traj_vec):
+        self.reset_sim()
+
+        for tstep in range(0, self.sim_length):
+            pb.stepSimulation()
+
+            pos_ee = [traj_vec[tstep, 0],
+                      traj_vec[tstep, 1], traj_vec[tstep, 2]]
+
+            # inverse kinematics
+            joint_poses = pb.calculateInverseKinematics(
+                self.kuka_id, self.kuka_ee_idx, pos_ee, self.init_ee_ori, jointDamping=self.jd)
+
+            # motor control to follow IK solution
+            for i in range(0, self.num_joints):
+                pb.setJointMotorControl2(bodyIndex=self.kuka_id, jointIndex=i, controlMode=pb.POSITION_CONTROL,
+                                         targetPosition=joint_poses[i], targetVelocity=0, force=500, positionGain=0.3, velocityGain=1)
+
+            self.log_step(tstep)
+            # time.sleep(1e-6)
+
+    def simulate_default_traj(self):
         self.reset_sim()
 
         theta = 0.0
@@ -147,6 +168,7 @@ class EnvKukaBlock():
                                          targetPosition=joint_poses[i], targetVelocity=0, force=500, positionGain=0.3, velocityGain=1)
 
             self.log_step(tstep)
+            # time.sleep(1e-6)
 
 
 if __name__ == "__main__":

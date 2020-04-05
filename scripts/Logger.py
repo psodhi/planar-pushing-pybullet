@@ -11,6 +11,7 @@ from matplotlib.patches import Rectangle, Circle
 import os
 import pdb
 
+
 class Logger():
 
     def __init__(self, params):
@@ -31,6 +32,7 @@ class Logger():
         # object poses
         self.obj_pos = np.zeros((self.sim_length, 3))
         self.obj_ori = np.zeros((self.sim_length, 4))
+        self.obj_ori_rpy = np.zeros((self.sim_length, 3))
 
         # contact pos/force measurements (A: endeff, B: object)
         self.contact_flag = np.zeros((self.sim_length, 1))
@@ -85,16 +87,63 @@ class Logger():
                       -sz_arw * self.contact_normal_onB[idx, 1],
                       head_width=5e-3)
 
-            xb = self.obj_pos[idx, 0] - 0.5*block_width
-            yb = self.obj_pos[idx, 1] - 0.5*block_height
-            roll, pitch, yaw = pb.getEulerFromQuaternion(self.obj_ori[idx, :])
-            rect = Rectangle((xb, yb), block_width, block_height, angle=yaw, facecolor='None', edgecolor='black')
+            yaw = self.obj_ori_rpy[idx, 2]
+            R = np.array([[np.cos(yaw), -np.sin(yaw)],
+                          [np.sin(yaw), np.cos(yaw)]])
+            offset = np.matmul(R, np.array(
+                [[0.5*block_width], [0.5*block_height]]))
+            xb = self.obj_pos[idx, 0] - offset[0]
+            yb = self.obj_pos[idx, 1] - offset[1]
+            rect = Rectangle((xb, yb), block_width, block_height, angle=(
+                np.rad2deg(yaw)), facecolor='None', edgecolor='black')
             plt.gca().add_patch(rect)
+
+            # debugging
+            # plt.plot(self.obj_pos[idx, 0], self.obj_pos[idx, 1],
+            #  color='black', marker='o')
+            # plt.plot(xb, yb, color='black', marker='o')
 
             plt.draw()
             plt.pause(1e-12)
 
-            if(save_fig): 
+            if(save_fig):
                 plt.savefig('{0}/{1:06d}.png'.format(dst_dir, i))
 
             plt.cla()
+
+    def plot_contact_data(self, save_fig=False):
+
+        fig1, axes1 = plt.subplots(5, 1, figsize=(10, 10))
+
+        axes1[0].plot(self.ee_pos[:, 0])
+        axes1[1].plot(self.ee_pos[:, 1])
+        axes1[2].plot(self.obj_pos[:, 0])
+        axes1[3].plot(self.obj_pos[:, 1])
+        axes1[4].plot(np.rad2deg(self.obj_ori_rpy[:, 2]))
+
+        axes1_name = ['x endeff (m)', 'y endeff (m)',
+                      'x block (m)', 'y block (m)', 'block rotation (deg)']
+        for i in range(5):
+            axes1[i].set_xlabel('time step')
+            axes1[i].set_ylabel(axes1_name[i])
+
+        fig2, axes2 = plt.subplots(2, 1, figsize=(10, 5))
+
+        axes2_name = ['contact distance', 'distance b/w contact points on A,B']
+        for i in range(2):
+            axes2[i].set_xlabel('time step')
+            axes2[i].set_ylabel(axes2_name[i])
+
+        axes2[0].plot(self.contact_distance)
+        distance_AB = np.linalg.norm(
+            self.contact_pos_onA-self.contact_pos_onB, ord=None, axis=1)
+        axes2[1].plot(distance_AB)
+
+        plt.show()
+
+        # save_fig = True
+        # dst_dir = '../outputs/contact_data/'
+        # if(save_fig):
+        #     cmd = 'mkdir -p {0}'.format(dst_dir)
+        #     os.popen(cmd, 'r')
+        #     plt.savefig('{0}/trajplots.png'.format(dst_dir))
