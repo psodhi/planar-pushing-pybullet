@@ -35,13 +35,15 @@ def main():
 
     num_runs = 1
     for run in range(0, num_runs):
-        traj_vec = traj.get_traj_line()
-        # traj_vec = traj.get_traj_circle()
+        # traj_vec = traj.get_traj_line()
+        traj_vec = traj.get_traj_circle()
         envkb.simulate(traj_vec)
 
     logger = envkb.get_logger()
-    logger.visualize_contact_data()
-    logger.plot_contact_data()
+    # logger.error_contact_factor()
+    # logger.visualize_contact_data()
+    # logger.plot_contact_data()
+    # logger.save_data_json("../outputs/log.json")
 
 
 if __name__ == "__main__":

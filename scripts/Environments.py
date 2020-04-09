@@ -73,6 +73,11 @@ class EnvKukaBlock():
         for i in range(self.num_joints):
             pb.resetJointState(self.kuka_id, i, self.reset_joint_states[i])
 
+        self.record_log_video = False
+        if (self.record_log_video):
+            self.log_id = pb.startStateLogging(
+                pb.STATE_LOGGING_VIDEO_MP4, "../outputs/push_block_kuka.mp4")
+
     def set_gui_params(self):
         cam_tgt_pos = [-0.5, 0.32, -0.15]
         cam_dist = 1
@@ -93,12 +98,19 @@ class EnvKukaBlock():
 
         # store in logger object
         self.logger.t[tstep, :] = self.tstart + tstep * self.dt
+
         self.logger.ee_pos[tstep, :] = link_state[0]
         self.logger.ee_ori[tstep, :] = link_state[1]
+        self.logger.ee_ori_mat[tstep, :] = pb.getMatrixFromQuaternion(
+            link_state[1]) # row-major order
+
         self.logger.obj_pos[tstep, :] = obj_pose[0]
         self.logger.obj_ori[tstep, :] = obj_pose[1]
+        self.logger.obj_ori_mat[tstep, :] = pb.getMatrixFromQuaternion(
+            obj_pose[1]) # row-major order
         self.logger.obj_ori_rpy[tstep, :] = pb.getEulerFromQuaternion(
             self.logger.obj_ori[tstep, :])
+
         if (len(contact_info) > 0):
             self.logger.contact_flag[tstep, :] = 1
             self.logger.contact_pos_onA[tstep, :] = contact_info[0][5]
@@ -137,6 +149,9 @@ class EnvKukaBlock():
 
             self.log_step(tstep)
             # time.sleep(1e-6)
+
+        if (self.record_log_video):
+            pb.stopStateLogging(self.log_id)
 
     def simulate_default_traj(self):
         self.reset_sim()
