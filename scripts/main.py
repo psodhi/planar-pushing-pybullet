@@ -15,11 +15,17 @@ def init_params():
     params['tend'] = 15.0
     params['dt'] = 1e-3
 
+    # end effector, object geometries
+    params['ee_radius'] = 0.051785
+    params['block_width'] = 0.30
+    params['block_height'] = 0.15
+
     # initial end effector pose
-    params['init_ee_pos'] = [-0.4, -0.2, 0.01]
+    # params['init_ee_pos'] = [-0.4, -0.2, 0.01]
+    params['init_ee_pos'] = [-0.4, -0.27, 0.01]
     params['init_ee_ori'] = pb.getQuaternionFromEuler([0, -np.pi, 0])
 
-    # initial obj pose
+    # initial object pose
     params['init_obj_pos'] = [-0.4, 0, 0.1]
     params['init_obj_ori'] = [0, 0, 0, 1]
 
@@ -40,10 +46,13 @@ def main():
         envkb.simulate(traj_vec)
 
     logger = envkb.get_logger()
-    # logger.error_contact_factor()
+    
     # logger.visualize_contact_data()
+    # logger.error_contact_factor()
     # logger.plot_contact_data()
-    # logger.save_data_json("../outputs/log.json")
+    # logger.plot_force_data()
+    
+    logger.save_data2d_json("../local/data/logCircle1.json")
 
 
 if __name__ == "__main__":

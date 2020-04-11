@@ -103,6 +103,9 @@ class EnvKukaBlock():
         self.logger.ee_ori[tstep, :] = link_state[1]
         self.logger.ee_ori_mat[tstep, :] = pb.getMatrixFromQuaternion(
             link_state[1]) # row-major order
+        self.logger.ee_ori_rpy[tstep, :] = pb.getEulerFromQuaternion(
+            self.logger.ee_ori[tstep, :])
+
 
         self.logger.obj_pos[tstep, :] = obj_pose[0]
         self.logger.obj_ori[tstep, :] = obj_pose[1]
@@ -118,6 +121,11 @@ class EnvKukaBlock():
             self.logger.contact_normal_onB[tstep, :] = contact_info[0][7]
             self.logger.contact_distance[tstep, :] = contact_info[0][8]
             self.logger.contact_normal_force[tstep, :] = contact_info[0][9]
+
+            self.logger.lateral_friction_onA[tstep,:] = contact_info[0][10]
+            self.logger.lateral_frictiondir_onA[tstep,:] = contact_info[0][11]
+            self.logger.lateral_friction_onB[tstep,:] = contact_info[0][12]
+            self.logger.lateral_frictiondir_onB[tstep,:] = contact_info[0][13]
 
     def reset_sim(self):
 

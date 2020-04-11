@@ -22,6 +22,8 @@ class Logger():
 
     def __init__(self, params):
 
+        self.params = params
+
         # read in sim params
         self.tstart = params['tstart']
         self.tend = params['tend']
@@ -29,9 +31,9 @@ class Logger():
         self.sim_length = np.int((self.tend - self.tstart) / self.dt)
 
         # obj, endeff geometric params
-        self.ee_radius = 0.051785
-        self.block_width = 0.15
-        self.block_height = 0.15
+        self.ee_radius = params['ee_radius']
+        self.block_width = params['block_width']
+        self.block_height = params['block_height']
 
         # time steps
         self.t = np.zeros((self.sim_length, 1))
@@ -40,6 +42,7 @@ class Logger():
         self.ee_pos = np.zeros((self.sim_length, 3))
         self.ee_ori = np.zeros((self.sim_length, 4))  # quaternion
         self.ee_ori_mat = np.zeros((self.sim_length, 9))  # rotation matrix
+        self.ee_ori_rpy = np.zeros((self.sim_length, 3))  # r,p,y angles
 
         # object poses
         self.obj_pos = np.zeros((self.sim_length, 3))
@@ -56,48 +59,69 @@ class Logger():
         self.contact_normal_force = np.zeros((self.sim_length, 1))
 
         # contact friction measurements
-        # self.lateral_friction1 = np.zeros((self.sim_length, 1))
-        # self.lateral_frictiondir1 = np.zeros((self.sim_length, 3))
+        self.lateral_friction_onA = np.zeros((self.sim_length, 1))
+        self.lateral_frictiondir_onA = np.zeros((self.sim_length, 3))
+        self.lateral_friction_onB = np.zeros((self.sim_length, 1))
+        self.lateral_frictiondir_onB = np.zeros((self.sim_length, 3))
+
+    def transform_to_frame2d(self, pt, frame_pose_2d):
+        yaw = frame_pose_2d[2, 0]
+        R = np.array([[np.cos(yaw), np.sin(yaw)], [-np.sin(yaw), np.cos(yaw)]])
+        t = -frame_pose_2d[0:2]
+        pt_tf = np.matmul(R, pt+t)
+
+        return pt_tf
+
+    def transform_from_frame2d(self, pt, frame_pose_2d):
+        yaw = frame_pose_2d[2, 0]
+        R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
+        t = frame_pose_2d[0:2]
+        pt_tf = np.matmul(R, pt)
+        pt_tf = t + pt_tf
+
+        return pt_tf
 
     def visualize_contact_data(self, save_fig=False):
 
         incontact_idxs = np.argwhere(self.contact_flag == 1)
         incontact_idxs = incontact_idxs[:, 0]
+        ee_center_poly = self.proj_ee_center()
 
         # save_fig = True
-        dst_dir = '../outputs/contact_data/'
+        dst_dir = '../local/outputs/contact_data/'
         if (save_fig):
             cmd = 'mkdir -p {0}'.format(dst_dir)
             os.popen(cmd, 'r')
 
         fig = plt.figure(figsize=(5, 4))
-        skip = 50
+        skip = 20
 
         for i in range(0, len(incontact_idxs), skip):
             idx = incontact_idxs[i]
 
             plt.xlim((-1.0, 0.2))
             plt.ylim((-0.2, 0.8))
-
-            # plot end effector (A: endeff, B: object)
-            plt.plot(self.ee_pos[idx, 0], self.ee_pos[idx, 1],
-                     color='green', marker='o')
-            plt.plot(self.contact_pos_onA[idx, 0], self.contact_pos_onA[idx, 1],
-                     color='green', marker='o')
-            circ = Circle((self.ee_pos[idx, 0], self.ee_pos[idx, 1]), self.ee_radius,
-                          facecolor='None', edgecolor='black', linestyle='--')
-            plt.gca().add_patch(circ)
-
-            # plot object (A: endeff, B: object)
             sz_arw = 0.05
 
-            plt.plot(self.contact_pos_onB[idx, 0], self.contact_pos_onB[idx, 1],
-                     color='red', marker='o')
-            plt.arrow(self.contact_pos_onB[idx, 0], self.contact_pos_onB[idx, 1],
-                      -sz_arw * self.contact_normal_onB[idx, 0],
-                      -sz_arw * self.contact_normal_onB[idx, 1],
-                      head_width=5e-3)
+            # plot end effector (A: endeff -- green, B: object -- red)
+            plt.plot(self.ee_pos[idx, 0], self.ee_pos[idx, 1],
+                     color='green', marker='o')
+            plt.plot(ee_center_poly[idx, 0], ee_center_poly[idx, 1],
+                     color='blue', marker='o')
+            circ = Circle((self.ee_pos[idx, 0], self.ee_pos[idx, 1]), self.ee_radius,
+                          facecolor='None', edgecolor='grey', linestyle='-')
+            plt.gca().add_patch(circ)
 
+            # plot contact point (computed using plotted force dxn)
+            pt_contact = np.array([[self.ee_pos[idx, 0] - self.ee_radius*self.contact_normal_onB[idx, 0]],
+                                   [self.ee_pos[idx, 1] - self.ee_radius*self.contact_normal_onB[idx, 1]]])
+            plt.plot(pt_contact[0], pt_contact[1], color='red', marker='o')
+            plt.arrow(self.ee_pos[idx, 0], self.ee_pos[idx, 1],
+                      -(self.ee_radius) * self.contact_normal_onB[idx, 0],
+                      -(self.ee_radius) * self.contact_normal_onB[idx, 1],
+                      head_width=5e-3, color="black")
+
+            # plot object pose
             yaw = self.obj_ori_rpy[idx, 2]
             R = np.array([[np.cos(yaw), -np.sin(yaw)],
                           [np.sin(yaw), np.cos(yaw)]])
@@ -106,13 +130,28 @@ class Logger():
             xb = self.obj_pos[idx, 0] - offset[0]
             yb = self.obj_pos[idx, 1] - offset[1]
             rect = Rectangle((xb, yb), self.block_width, self.block_height, angle=(
-                np.rad2deg(yaw)), facecolor='None', edgecolor='black')
+                np.rad2deg(yaw)), facecolor='None', edgecolor='grey')
             plt.gca().add_patch(rect)
 
-            # debugging
-            # plt.plot(self.obj_pos[idx, 0], self.obj_pos[idx, 1],
-            #  color='black', marker='o')
-            # plt.plot(xb, yb, color='black', marker='o')
+            # plot getContactPoints() info
+            # plt.plot(self.contact_pos_onA[idx, 0], self.contact_pos_onA[idx, 1],
+            #  color='green', marker='o')
+            # plt.plot(self.contact_pos_onB[idx, 0], self.contact_pos_onB[idx, 1],
+            #  color='red', marker='o')
+            # plt.arrow(self.contact_pos_onB[idx, 0], self.contact_pos_onB[idx, 1],
+            #           -sz_arw * self.contact_normal_onB[idx, 0],
+            #           -sz_arw * self.contact_normal_onB[idx, 1],
+            #           head_width=5e-3, color="black")
+
+            # # lateral friction forces
+            # plt.arrow(self.contact_pos_onB[idx, 0], self.contact_pos_onB[idx, 1],
+            #   sz_arw * self.lateral_frictiondir_onB[idx, 0],
+            #   sz_arw * self.lateral_frictiondir_onB[idx, 1],
+            #   head_width=5e-3, color="red")
+            # plt.arrow(self.contact_pos_onA[idx, 0], self.contact_pos_onA[idx, 1],
+            #           sz_arw * self.lateral_frictiondir_onA[idx, 0],
+            #           sz_arw * self.lateral_frictiondir_onA[idx, 1],
+            #           head_width=5e-3, color="green")
 
             plt.draw()
             plt.pause(1e-12)
@@ -122,39 +161,40 @@ class Logger():
 
             plt.cla()
 
-    def plot_traj_contact_data(self, save_fig=False):
+    def proj_ee_center(self):
 
-        incontact_idxs = np.argwhere(self.contact_flag == 1)
-        incontact_idxs = incontact_idxs[:, 0]
+        poly_obj = Polygon([(-0.0-0.5*self.block_width, -0.5*self.block_height),
+                            (-0.0-0.5*self.block_width, 0.5*self.block_height),
+                            (-0.0+0.5*self.block_width, 0.5*self.block_height),
+                            (-0.0+0.5*self.block_width, -0.5*self.block_height)])
 
-        fig1, axes1 = plt.subplots(5, 1, figsize=(10, 10))
+        ee_center_poly = np.zeros((self.sim_length, 2))
 
-        axes1[0].plot(self.ee_pos[:, 0])
-        axes1[1].plot(self.ee_pos[:, 1])
-        axes1[2].plot(self.obj_pos[:, 0])
-        axes1[3].plot(self.obj_pos[:, 1])
-        axes1[4].plot(np.rad2deg(self.obj_ori_rpy[:, 2]))
+        for tstep in range(0, self.sim_length, 1):
 
-        axes1_name = ['x endeff (m)', 'y endeff (m)',
-                      'x block (m)', 'y block (m)', 'block rotation (deg)']
-        for i in range(5):
-            axes1[i].set_xlabel('time step')
-            axes1[i].set_ylabel(axes1_name[i])
+            if (self.contact_flag[tstep] == False):
+                continue
 
-        fig2, axes2 = plt.subplots(1, 1, figsize=(8, 5))
+            frame_pose_2d = np.array([[self.obj_pos[tstep, 0]], [self.obj_pos[tstep, 1]],
+                                      [self.obj_ori_rpy[tstep, 2]]])
+            ee_center__world = np.array([[self.ee_pos[tstep, 0]],
+                                         [self.ee_pos[tstep, 1]]])
 
-        axes2.plot(self.contact_distance[incontact_idxs[50:-1], :])
+            ee_center__obj = self.transform_to_frame2d(
+                ee_center__world, frame_pose_2d)
 
-        plt.show()
+            # proj method 1 (pt2poly): using nearest_points
+            dist = Point(ee_center__obj[0],
+                         ee_center__obj[1]).distance(poly_obj)
+            ee_center_poly__obj, p2 = nearest_points(poly_obj, Point(
+                ee_center__obj[0], ee_center__obj[1]))
 
-    def transform_to_frame2d(self, pt, frame_pose_2d):
-        yaw = frame_pose_2d[2, 0]
-        R = np.array([[np.cos(yaw), np.sin(yaw)], [-np.sin(yaw), np.cos(yaw)]])
-        t = -frame_pose_2d[0:2]
-        pt_tf = np.matmul(R, pt+t)
+            ee_center_poly__world = self.transform_from_frame2d(
+                np.array([[ee_center_poly__obj.x], [ee_center_poly__obj.y]]), frame_pose_2d)
+            ee_center_poly[tstep, :] = ee_center_poly__world.transpose()
 
-        return pt_tf
-    
+        return ee_center_poly
+
     def error_contact_factor(self):
 
         # verify ground truth unary contact factor error
@@ -163,11 +203,12 @@ class Logger():
         err_vec = np.zeros((self.sim_length, 3))
 
         fig = plt.figure(constrained_layout=True)
-        gs = GridSpec(3, 1, figure=fig)
-        ax1 = plt.subplot(gs.new_subplotspec((0, 0), rowspan=3))
-        
+        nrows = 3
+        ncols = 2
+        gs = GridSpec(nrows, ncols, figure=fig)
+
         save_fig = False
-        dst_dir = '../outputs/contact_data/visualize_factor/'
+        dst_dir = '../local/outputs/contact_data/visualize_factor/'
         if (save_fig):
             cmd = 'mkdir -p {0}'.format(dst_dir)
             os.popen(cmd, 'r')
@@ -212,37 +253,42 @@ class Logger():
             # dist2 = np.linalg.norm(np.array([[closest_point_coords.x], [closest_point_coords.y]]) - ee_center__obj)
             # print("dist2: {0}".format(dist2))
 
-            # ax1 = fig.add_subplot(gs[0, 0])
-            # ax2 = fig.add_subplot(gs[0, 1])
-            # ax3 = fig.add_subplot(gs[1, 1])
-            # ax4 = fig.add_subplot(gs[2, 1])
+            ax = [None] * (nrows*ncols)
+            ax[0] = fig.add_subplot(gs[:, 0])
+            # ax[0] = plt.subplot(gs.new_subplotspec((0, 0), rowspan=3))
+            ax[1] = fig.add_subplot(gs[0, 1])
+            ax[2] = fig.add_subplot(gs[1, 1])
+            ax[3] = fig.add_subplot(gs[2, 1])
 
             incontact_idxs = np.argwhere(self.contact_flag[0:tstep] == 1)
             incontact_idxs = incontact_idxs[:, 0]
             err_vec_plot = err_vec[0:tstep, :]
-            # ax2.plot(err_vec_plot[incontact_idxs[50:-1], 0])
-            # ax3.plot(err_vec_plot[incontact_idxs[50:-1], 1])
-            # ax4.plot(err_vec_plot[incontact_idxs[50:-1], 2])
+            ax[1].plot(err_vec_plot[incontact_idxs[50:-1], 0])
+            ax[2].plot(err_vec_plot[incontact_idxs[50:-1], 1])
+            ax[3].plot(err_vec_plot[incontact_idxs[50:-1], 2])
 
-            ax1.set_xlim((-0.2, 0.2))
-            ax1.set_ylim((-0.2, 0.2))
+            ax[0].set_xlim((-0.2, 0.2))
+            ax[0].set_ylim((-0.2, 0.2))
 
-            sz_arw = 0.05 # self.ee_radius
+            sz_arw = 0.05  # self.ee_radius
             x, y = poly_obj.exterior.xy
-            ax1.plot(x, y, color='grey')
-
-            dxn = ee_center__world - pt_contact__world
-            dxn = 1/np.linalg.norm(dxn) * dxn
-
-            ax1.plot(ee_center__obj[0], ee_center__obj[1],
-                     color='green', marker='o')
-            ax1.plot(pt_contact__obj[0], pt_contact__obj[1],
-                     color='red', marker='o')
-            ax1.plot(ee_center_poly__obj.x, ee_center_poly__obj.y,
-                     color='blue', marker='o')
+            ax[0].plot(x, y, color='grey')
+            ax[0].plot(ee_center__obj[0], ee_center__obj[1],
+                       color='green', marker='o')
+            ax[0].plot(pt_contact__obj[0], pt_contact__obj[1],
+                       color='red', marker='o')
+            ax[0].plot(ee_center_poly__obj.x, ee_center_poly__obj.y,
+                       color='blue', marker='o')
             circ = Circle((ee_center__obj[0], ee_center__obj[1]), self.ee_radius,
-                          facecolor='None', edgecolor='black', linestyle='--')
-            ax1.add_patch(circ)
+                          facecolor='None', edgecolor='grey', linestyle='-')
+            ax[0].add_patch(circ)
+
+            dxn = ee_center__obj - pt_contact__obj
+            dxn = 1/np.linalg.norm(dxn) * dxn
+            ax[0].arrow(ee_center__obj[0, 0], ee_center__obj[1, 0],
+                        -(self.ee_radius) * dxn[0, 0],
+                        -(self.ee_radius) * dxn[1, 0],
+                        head_width=2e-3, color="black")
 
             plt.draw()
             plt.pause(1e-3)
@@ -250,16 +296,95 @@ class Logger():
             if(save_fig):
                 plt.savefig('{0}/{1:06d}.png'.format(dst_dir, tstep))
 
-            ax1.cla()
-            # ax2.cla()
-            # ax3.cla()
-            # ax4.cla()
+            ax[0].cla()
+            ax[1].cla()
+            ax[2].cla()
+            ax[3].cla()
 
-    def save_data_json(self, dstfile):
+    def plot_force_data(self, save_fig=False):
+
+        fig = plt.figure(constrained_layout=True)
+        nrows = 3
+        ncols = 2
+        gs = GridSpec(nrows, ncols, figure=fig)
+
+        incontact_idxs = np.argwhere(self.contact_flag == 1)
+        incontact_idxs = incontact_idxs[:, 0]
+
+        ax = [None] * (nrows*ncols)
+        ax[0] = fig.add_subplot(gs[0, 0])
+        ax[1] = fig.add_subplot(gs[1, 0])
+        ax[2] = fig.add_subplot(gs[2, 0])
+        ax[3] = fig.add_subplot(gs[0, 1])
+        ax[4] = fig.add_subplot(gs[1, 1])
+        ax[5] = fig.add_subplot(gs[2, 1])
+
+        # force values
+        ax[0].plot(self.contact_normal_force[incontact_idxs, :])
+        ax[1].plot(self.lateral_friction_onA[incontact_idxs, :])
+        ax[2].plot(self.lateral_friction_onB[incontact_idxs, :])
+
+        # force directions
+        ax[3].plot(self.contact_normal_onB[incontact_idxs, 0], color='red')
+        ax[3].plot(self.contact_normal_onB[incontact_idxs, 1], color='green')
+        # ax[3].plot(self.contact_normal_onB[incontact_idxs, 2], color='blue')
+        ax[3].legend(['x dxn', 'y dxn'])
+
+        ax[4].plot(self.lateral_frictiondir_onA[incontact_idxs, 0], color='red')
+        ax[4].plot(self.lateral_frictiondir_onA[incontact_idxs, 1],
+                   color='green')
+        # ax[4].plot(self.lateral_frictiondir_onA[incontact_idxs, 2], color='blue')
+        ax[4].legend(['x dxn', 'y dxn'])
+
+        ax[5].plot(self.lateral_frictiondir_onB[incontact_idxs, 0], color='red')
+        ax[5].plot(self.lateral_frictiondir_onB[incontact_idxs, 1],
+                   color='green')
+        # ax[5].plot(self.lateral_frictiondir_onB[incontact_idxs, 2], color='blue')
+        ax[5].legend(['x dxn', 'y dxn'])
+
+        plt.show()
+
+    def plot_traj_contact_data(self, save_fig=False):
+
+        incontact_idxs = np.argwhere(self.contact_flag == 1)
+        incontact_idxs = incontact_idxs[:, 0]
+
+        fig1, axes1 = plt.subplots(5, 1, figsize=(10, 10))
+
+        axes1[0].plot(self.ee_pos[:, 0])
+        axes1[1].plot(self.ee_pos[:, 1])
+        axes1[2].plot(self.obj_pos[:, 0])
+        axes1[3].plot(self.obj_pos[:, 1])
+        axes1[4].plot(np.rad2deg(self.obj_ori_rpy[:, 2]))
+
+        axes1_name = ['x endeff (m)', 'y endeff (m)',
+                      'x block (m)', 'y block (m)', 'block rotation (deg)']
+        for i in range(5):
+            axes1[i].set_xlabel('time step')
+            axes1[i].set_ylabel(axes1_name[i])
+
+        fig2, axes2 = plt.subplots(1, 1, figsize=(8, 5))
+
+        axes2.plot(self.contact_distance[incontact_idxs[50:-1], :])
+
+        plt.show()
+
+    def save_data2d_json(self, dstfile):
+
+        ee_poses_2d = np.zeros((self.sim_length, 3))
+        obj_poses_2d = np.zeros((self.sim_length, 3))
+        ee_poses_2d[:, 0:2] = self.ee_pos[:, 0:2]
+        ee_poses_2d[:, 2] = self.ee_ori_rpy[:, 2]
+        obj_poses_2d[:, 0:2] = self.obj_pos[:, 0:2]
+        obj_poses_2d[:, 2] = self.obj_ori_rpy[:, 2]
 
         #  use .tolist() to serialize np arrays
-        data = {'ee_pos': self.ee_pos.tolist(),
-                'ee_ori': self.ee_ori.tolist()}
+        data = {'params': self.params,
+                'ee_poses_2d': ee_poses_2d.tolist(),
+                'obj_poses_2d': obj_poses_2d.tolist(),
+                'contact_normals_2d': (-self.contact_normal_onB[:, 0:2]).tolist(),
+                'contact_normal_forces': self.contact_normal_force.tolist(),
+                'contact_points_gt_2d': (self.contact_pos_onB[:, 0:2]).tolist()}
 
         with open(dstfile, 'w') as outfile:
             json.dump(data, outfile, indent=4)
