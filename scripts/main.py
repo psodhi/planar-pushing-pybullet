@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pdb
 
+import json
 
 def init_params():
 
@@ -22,7 +23,7 @@ def init_params():
 
     # initial end effector pose
     # params['init_ee_pos'] = [-0.4, -0.2, 0.01]
-    params['init_ee_pos'] = [-0.4, -0.27, 0.01]
+    params['init_ee_pos'] = [-0.4, -0.26, 0.01]
     params['init_ee_ori'] = pb.getQuaternionFromEuler([0, -np.pi, 0])
 
     # initial object pose
@@ -47,13 +48,14 @@ def main():
 
     logger = envkb.get_logger()
     
-    # logger.visualize_contact_data()
-    # logger.error_contact_factor()
-    # logger.plot_contact_data()
+    # logger.visualize_contact_info()
+    logger.visualize_contact_factor__world()
+    # logger.visualize_contact_factor__obj()
+
+    # logger.plot_traj_contact_data()
     # logger.plot_force_data()
     
     logger.save_data2d_json("../local/data/logCircle1.json")
-
 
 if __name__ == "__main__":
     main()

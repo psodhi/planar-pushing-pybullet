@@ -76,7 +76,7 @@ class EnvKukaBlock():
         self.record_log_video = False
         if (self.record_log_video):
             self.log_id = pb.startStateLogging(
-                pb.STATE_LOGGING_VIDEO_MP4, "../outputs/push_block_kuka.mp4")
+                pb.STATE_LOGGING_VIDEO_MP4, "../local/outputs/push_block_kuka.mp4")
 
     def set_gui_params(self):
         cam_tgt_pos = [-0.5, 0.32, -0.15]
@@ -102,15 +102,14 @@ class EnvKukaBlock():
         self.logger.ee_pos[tstep, :] = link_state[0]
         self.logger.ee_ori[tstep, :] = link_state[1]
         self.logger.ee_ori_mat[tstep, :] = pb.getMatrixFromQuaternion(
-            link_state[1]) # row-major order
+            link_state[1])  # row-major order
         self.logger.ee_ori_rpy[tstep, :] = pb.getEulerFromQuaternion(
             self.logger.ee_ori[tstep, :])
-
 
         self.logger.obj_pos[tstep, :] = obj_pose[0]
         self.logger.obj_ori[tstep, :] = obj_pose[1]
         self.logger.obj_ori_mat[tstep, :] = pb.getMatrixFromQuaternion(
-            obj_pose[1]) # row-major order
+            obj_pose[1])  # row-major order
         self.logger.obj_ori_rpy[tstep, :] = pb.getEulerFromQuaternion(
             self.logger.obj_ori[tstep, :])
 
@@ -122,10 +121,10 @@ class EnvKukaBlock():
             self.logger.contact_distance[tstep, :] = contact_info[0][8]
             self.logger.contact_normal_force[tstep, :] = contact_info[0][9]
 
-            self.logger.lateral_friction_onA[tstep,:] = contact_info[0][10]
-            self.logger.lateral_frictiondir_onA[tstep,:] = contact_info[0][11]
-            self.logger.lateral_friction_onB[tstep,:] = contact_info[0][12]
-            self.logger.lateral_frictiondir_onB[tstep,:] = contact_info[0][13]
+            self.logger.lateral_friction_onA[tstep, :] = contact_info[0][10]
+            self.logger.lateral_frictiondir_onA[tstep, :] = contact_info[0][11]
+            self.logger.lateral_friction_onB[tstep, :] = contact_info[0][12]
+            self.logger.lateral_frictiondir_onB[tstep, :] = contact_info[0][13]
 
     def reset_sim(self):
 
