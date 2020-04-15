@@ -136,11 +136,48 @@ class EnvKukaBlock():
         pb.resetBasePositionAndOrientation(
             self.obj_id, self.init_obj_pos, self.init_obj_ori)
 
+    def simulate_reinitialize(self, traj_vec):
+        """" Sticky contacts test: Re-initialize simulation with states from previous time step """
+
+        self.reset_sim()
+        reinit_obj_state = True
+        reinit_ee_state = True
+
+        for tstep in range(0, self.sim_length):
+
+            # re-init object pose to value in previous time step
+            if (reinit_obj_state):
+                if (tstep == 0):
+                    pb.resetBasePositionAndOrientation(
+                        self.obj_id, self.init_obj_pos, self.init_obj_ori)
+                else:
+                    pb.resetBasePositionAndOrientation(
+                        self.obj_id, self.logger.obj_pos[tstep-1, :], self.logger.obj_ori[tstep-1, :])
+
+            # re-init arm joint states to exact IK solution
+            pos_ee = [traj_vec[tstep, 0],
+                      traj_vec[tstep, 1], traj_vec[tstep, 2]]
+            joint_poses = pb.calculateInverseKinematics(
+                self.kuka_id, self.kuka_ee_idx, pos_ee, self.init_ee_ori, jointDamping=self.jd)
+            if (reinit_ee_state):
+                for i in range(0, self.num_joints):
+                    pb.resetJointState(self.kuka_id, i, joint_poses[i])
+            else:
+                for i in range(0, self.num_joints):
+                    pb.setJointMotorControl2(bodyIndex=self.kuka_id, jointIndex=i, controlMode=pb.POSITION_CONTROL,
+                                             targetPosition=joint_poses[i], targetVelocity=0, force=500, positionGain=0.3, velocityGain=1)
+
+            pb.stepSimulation()
+            self.log_step(tstep)
+            # time.sleep(1. / 240.)
+
+        if (self.record_log_video):
+            pb.stopStateLogging(self.log_id)
+
     def simulate(self, traj_vec):
         self.reset_sim()
 
         for tstep in range(0, self.sim_length):
-            pb.stepSimulation()
 
             pos_ee = [traj_vec[tstep, 0],
                       traj_vec[tstep, 1], traj_vec[tstep, 2]]
@@ -154,45 +191,9 @@ class EnvKukaBlock():
                 pb.setJointMotorControl2(bodyIndex=self.kuka_id, jointIndex=i, controlMode=pb.POSITION_CONTROL,
                                          targetPosition=joint_poses[i], targetVelocity=0, force=500, positionGain=0.3, velocityGain=1)
 
+            pb.stepSimulation()
             self.log_step(tstep)
-            # time.sleep(1e-6)
+            # time.sleep(1. / 240.)
 
         if (self.record_log_video):
             pb.stopStateLogging(self.log_id)
-
-    def simulate_default_traj(self):
-        self.reset_sim()
-
-        theta = 0.0
-        push_dir = np.array([math.sin(theta), math.cos(theta), 0.])
-        push_step = 0.00005
-        x = self.init_ee_pos[0]
-        y = self.init_ee_pos[1]
-        z = self.init_ee_pos[2]
-
-        for tstep in range(0, self.sim_length):
-            pb.stepSimulation()
-
-            # set end effector pose based on push direction/step
-            dp = push_step * push_dir
-            x += dp[0]
-            y += dp[1]
-            z += dp[2]
-            pos_ee = [x, y, z]
-
-            # inverse kinematics
-            joint_poses = pb.calculateInverseKinematics(
-                self.kuka_id, self.kuka_ee_idx, pos_ee, self.init_ee_ori, jointDamping=self.jd)
-
-            # motor control to follow IK solution
-            for i in range(0, self.num_joints):
-                pb.setJointMotorControl2(bodyIndex=self.kuka_id, jointIndex=i, controlMode=pb.POSITION_CONTROL,
-                                         targetPosition=joint_poses[i], targetVelocity=0, force=500, positionGain=0.3, velocityGain=1)
-
-            self.log_step(tstep)
-            # time.sleep(1e-6)
-
-
-if __name__ == "__main__":
-    envkb = EnvKukaBlock()
-    envkb.simulate()

@@ -8,6 +8,7 @@ import pdb
 
 import json
 
+
 def init_params():
 
     # sim params
@@ -17,7 +18,7 @@ def init_params():
     params['dt'] = 1e-3
 
     # end effector, object geometries
-    params['ee_radius'] = 0.051785
+    params['ee_radius'] = 0.051
     params['block_width'] = 0.30
     params['block_height'] = 0.15
 
@@ -44,18 +45,21 @@ def main():
     for run in range(0, num_runs):
         # traj_vec = traj.get_traj_line()
         traj_vec = traj.get_traj_circle()
+
         envkb.simulate(traj_vec)
+        # envkb.simulate_reinitialize(traj_vec)
 
     logger = envkb.get_logger()
-    
+
     # logger.visualize_contact_info()
     logger.visualize_contact_factor__world()
     # logger.visualize_contact_factor__obj()
 
     # logger.plot_traj_contact_data()
     # logger.plot_force_data()
-    
-    logger.save_data2d_json("../local/data/logCircle1.json")
+
+    # logger.save_data2d_json("../local/data/logCircle1.json")
+
 
 if __name__ == "__main__":
     main()
