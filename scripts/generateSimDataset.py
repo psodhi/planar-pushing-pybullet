@@ -1,5 +1,6 @@
-from Environments import EnvKukaBlock
-from Trajectories import Trajectories
+from simulator.Environments import EnvKukaBlock
+from simulator.Trajectories import Trajectories
+from simulator.Logger import Logger
 
 import pybullet as pb
 import numpy as np
@@ -23,7 +24,6 @@ def init_params():
     params['block_height'] = 0.15
 
     # initial end effector pose
-    # params['init_ee_pos'] = [-0.4, -0.2, 0.01]
     params['init_ee_pos'] = [-0.4, -0.26, 0.01]
     params['init_ee_ori'] = pb.getQuaternionFromEuler([0, -np.pi, 0])
 

@@ -6,7 +6,6 @@ from datetime import datetime
 import numpy as np
 import json
 
-from pyquaternion import Quaternion
 from shapely.geometry import Point, Polygon, LinearRing
 from shapely.ops import nearest_points
 

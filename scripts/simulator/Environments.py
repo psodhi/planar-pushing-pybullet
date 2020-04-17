@@ -1,4 +1,4 @@
-from Logger import Logger
+from .Logger import Logger
 
 import pybullet as pb
 import pybullet_data
