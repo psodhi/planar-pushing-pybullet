@@ -131,7 +131,7 @@ class Logger():
         for i in range(0, len(incontact_idxs), skip):
             idx = incontact_idxs[i]
 
-            plt.xlim((-1.0, 0.6))
+            plt.xlim((-0.6, 0.6))
             plt.ylim((-0.2, 0.8))
             sz_arw = 0.05
 
@@ -425,6 +425,17 @@ class Logger():
 
         plt.show()
 
+    def get_shape_poly_vertices(self, shape_id):
+
+        if (shape_id == 'rect'):
+            poly_vertices = np.array([[-0.5*self.block_width, -0.5*self.block_height],
+                                      [-0.5*self.block_width, 0.5*self.block_height],
+                                      [0.5*self.block_width, 0.5*self.block_height],
+                                      [0.5*self.block_width, -0.5*self.block_height]])
+            # poly_vertices = poly_vertices.transpose()  # 2 x nv
+
+        return poly_vertices
+
     def save_data2d_json(self, dstfile):
 
         ee_poses_2d = np.zeros((self.sim_length, 3))
@@ -434,10 +445,14 @@ class Logger():
         obj_poses_2d[:, 0:2] = self.obj_pos[:, 0:2]
         obj_poses_2d[:, 2] = self.obj_ori_rpy[:, 2]
 
+        obj_poly_shape = self.get_shape_poly_vertices('rect')
+
         #  use .tolist() to serialize np arrays
         data = {'params': self.params,
+                'obj_poly_shape': obj_poly_shape.tolist(),
                 'ee_poses_2d': ee_poses_2d.tolist(),
                 'obj_poses_2d': obj_poses_2d.tolist(),
+                'contact_flag' : self.contact_flag.tolist(),
                 'contact_normals_2d': (-self.contact_normal_onB[:, 0:2]).tolist(),
                 'contact_normal_forces': self.contact_normal_force.tolist(),
                 'contact_points_gt_2d': (self.contact_pos_onB[:, 0:2]).tolist()}

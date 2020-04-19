@@ -38,7 +38,7 @@ def draw_object(pose, params, color_val):
     return rect
 
 
-def visualize_poses(poses1, poses2, dataset):
+def visualize_poses(dataset, poses1, poses2, poses3):
 
     nposes = poses1.shape[0]
     skip = 1
@@ -48,6 +48,7 @@ def visualize_poses(poses1, poses2, dataset):
 
     ds_idx = 0
     ds_skip = 50
+    fig = plt.figure(figsize=(16, 12))
     for idx in range(0, nposes, skip):
 
         plt.xlim((-1.0, 0.6))
@@ -63,18 +64,22 @@ def visualize_poses(poses1, poses2, dataset):
         # plot object
         rect1 = draw_object(poses1[idx, :], params, 'green')
         rect2 = draw_object(poses2[idx, :], params, 'blue')
+        rect3 = draw_object(poses3[idx, :], params, 'red')
         plt.gca().add_patch(rect1)
         plt.gca().add_patch(rect2)
+        plt.gca().add_patch(rect3)
 
         plt.plot(poses1[1:idx, 0], poses1[1:idx, 1],
                  color='green', linestyle='-')
         plt.plot(poses2[1:idx, 0], poses2[1:idx, 1],
                  color='blue', linestyle='-')
+        plt.plot(poses3[1:idx, 0], poses3[1:idx, 1],
+                 color='red', linestyle='-')
 
         ds_idx = ds_idx + ds_skip
 
         plt.draw()
-        plt.pause(1e-12)
+        plt.pause(1e-3)
         plt.cla()
 
 
@@ -97,7 +102,11 @@ def main():
             srcdir, dataset_name, str(tstep).zfill(3))
         poses_odom = read_poses_json(filename)
 
-        visualize_poses(poses_gt, poses_odom, dataset)
+        filename = "{0}/contact/{1}UnconIter{2}.json".format(
+            srcdir, dataset_name, str(tstep).zfill(3))
+        poses_uncon = read_poses_json(filename)
+
+        visualize_poses(dataset, poses_gt, poses_odom, poses_uncon)
 
 
 if __name__ == "__main__":

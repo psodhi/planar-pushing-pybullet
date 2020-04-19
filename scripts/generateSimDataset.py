@@ -52,13 +52,13 @@ def main():
     logger = envkb.get_logger()
 
     # logger.visualize_contact_info()
-    logger.visualize_contact_factor__world()
+    # logger.visualize_contact_factor__world()
     # logger.visualize_contact_factor__obj()
 
     # logger.plot_traj_contact_data()
     # logger.plot_force_data()
 
-    # logger.save_data2d_json("../local/data/logCircle1.json")
+    logger.save_data2d_json("../local/data/logCircle1.json")
 
 
 if __name__ == "__main__":
