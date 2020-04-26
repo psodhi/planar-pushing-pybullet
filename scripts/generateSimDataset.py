@@ -57,8 +57,9 @@ def main():
 
     # logger.plot_traj_contact_data()
     # logger.plot_force_data()
-
-    logger.save_data2d_json("../local/data/logCircle1.json")
+    
+    dataset_name = "logCircle1"
+    logger.save_data2d_json("../local/data/{0}.json".format(dataset_name))
 
 
 if __name__ == "__main__":

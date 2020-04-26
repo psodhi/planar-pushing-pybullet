@@ -459,3 +459,5 @@ class Logger():
 
         with open(dstfile, 'w') as outfile:
             json.dump(data, outfile, indent=4)
+        
+        print("Finished writing json dataset: {0}".format(dstfile))
