@@ -182,7 +182,7 @@ class Logger():
             plt.cla()
 
     def visualize_contact_factor__world(self, save_fig=False):
-        """ Visualize contact factor values as used by Kuan-Ting et al., ICRA 2018 (world frame) """
+        """ Visualize contact factor values (world frame) """
 
         incontact_idxs = np.argwhere(self.contact_flag == 1)
         incontact_idxs = incontact_idxs[:, 0]
@@ -251,7 +251,7 @@ class Logger():
             plt.cla()
 
     def visualize_contact_factor__obj(self):
-        """ Visualize (and plot) contact factor values as used by Kuan-Ting et al., ICRA 2018 (object frame) """
+        """ Visualize (and plot) contact factor values (object frame) """
 
         err_vec = np.zeros((self.sim_length, 3))
 
