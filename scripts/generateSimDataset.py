@@ -1,6 +1,7 @@
 from simulator.Environments import EnvKukaBlock
 from simulator.Trajectories import Trajectories
 from simulator.Logger import Logger
+from simulator.Visualizer import Visualizer
 
 import pybullet as pb
 import numpy as np
@@ -43,24 +44,23 @@ def main():
 
     num_runs = 1
     for run in range(0, num_runs):
-        # traj_vec = traj.get_traj_line()
         traj_vec = traj.get_traj_circle()
+        # traj_vec = traj.get_traj_line()
 
         envkb.simulate(traj_vec)
         # envkb.simulate_reinitialize(traj_vec)
 
     logger = envkb.get_logger()
-
-    # logger.visualize_contact_info()
-    # logger.visualize_contact_factor__world()
-    # logger.visualize_contact_factor__obj()
-
-    # logger.plot_traj_contact_data()
-    # logger.plot_force_data()
-    
     dataset_name = "logCircle1"
     logger.save_data2d_json("../local/data/{0}.json".format(dataset_name))
 
+    visualizer = Visualizer(params, logger)
+    # visualizer.visualize_contact_info()
+    visualizer.visualize_contact_factor__world()
+    # visualizer.visualize_contact_factor__obj()
+    # visualizer.plot_traj_contact_data()
+    # visualizer.plot_force_data()
+    
 
 if __name__ == "__main__":
     main()

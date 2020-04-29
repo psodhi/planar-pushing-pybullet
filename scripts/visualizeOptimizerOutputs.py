@@ -166,7 +166,7 @@ def visualize_poses__world(dataset, ee_poses_noisy, poses1, poses2, poses3, pose
 def write_video(imgsrcdir, viddst):
 
     framerate = 10    
-    cmd = "ffmpeg -y -r {0} -pattern_type glob -i '{1}/*.png' -c:v libx264 {2}.mp4".format(
+    cmd = 'ffmpeg -y -r {0} -pattern_type glob -i '{1}/*.png' -c:v libx264 {2}.mp4'.format(
         framerate, imgsrcdir, viddst)
     call(cmd, shell=True)
 
@@ -177,10 +177,10 @@ def write_video(imgsrcdir, viddst):
 def main():
     dataset_name = "logCircle1"  # logCircle1, logLine1
     std_contact = 0.05
-    srcdir = "../local/outputs/optimizer"
+    srcdir = '../local/outputs/optimizer'
 
-    viz_frame = "world"  # world, object
-    dstdir = "../local/outputs/optimizer/viz_results/{0}/std_{1}/{2}".format(
+    viz_frame = 'world'  # world, object
+    dstdir = '../local/outputs/optimizer/viz_results/{0}/std_{1}/{2}'.format(
         dataset_name, std_contact, viz_frame)
 
     filename = "../local/data/{0}.json".format(dataset_name)
@@ -190,35 +190,35 @@ def main():
     fig = plt.figure(figsize=(16, 12))
     save_fig = True
     if (save_fig):
-        cmd = 'mkdir -p {0}'.format(dstdir)
+        cmd = "mkdir -p {0}".format(dstdir)
         os.popen(cmd, 'r')
 
     nsteps = 100
     for tstep in range(1, nsteps):
 
-        filename = "{0}/contact/std_{1}/{2}UnconIter{3}.json".format(
+        filename = '{0}/contact/std_{1}/{2}UnconIter{3}.json'.format(
             srcdir, std_contact, dataset_name, str(tstep).zfill(3))
         poses_uncon, poses_gt, poses_odom, ee_poses_noisy = read_poses_json(
             filename)
 
-        filename = "{0}/contact/std_{1}/{2}ConIter{3}.json".format(
+        filename = '{0}/contact/std_{1}/{2}ConIter{3}.json'.format(
             srcdir, std_contact, dataset_name, str(tstep).zfill(3))
         poses_con, poses_gt, poses_odom, ee_poses_noisy = read_poses_json(
             filename)
 
         figfile = '{0}/{1:06d}.png'.format(dstdir, tstep)
-        if (viz_frame == "world"):
+        if (viz_frame == 'world'):
             visualize_poses__world(dataset, ee_poses_noisy, poses_gt,
                                    poses_odom, poses_uncon, poses_con, figfile, True)
-        elif (viz_frame == "object"): 
+        elif (viz_frame == 'object'): 
             if (tstep < 30): # hack: to skip contact_flag=0 poses
                 continue
             visualize_poses__object(dataset, ee_poses_noisy, poses_gt,
                                  poses_odom, poses_uncon, poses_con, figfile, True)
 
     std_odom = 0.005
-    vidname = "{0}_stdodom_{1}_stdcontact_{2}".format(dataset_name, std_odom, std_contact)
-    viddst = "../local/outputs/optimizer/viz_results/{0}".format(vidname)
+    vidname = '{0}_stdodom_{1}_stdcontact_{2}'.format(dataset_name, std_odom, std_contact)
+    viddst = '../local/outputs/optimizer/viz_results/{0}'.format(vidname)
     write_video(dstdir, viddst)
 
 
