@@ -50,12 +50,12 @@ def transform_to_frame2d(pt, frame_pose_2d):
 def visualize_poses__object(dataset, ee_poses_noisy, poses1, poses2, poses3, poses4, figfile='', save_fig=False):
     params = dataset['params']
 
-    poly_obj = Polygon([(-0.5*params['block_width'], -0.5*params['block_height']),
-                        (-0.5*params['block_width'],
-                         0.5*params['block_height']),
-                        (0.5*params['block_width'],
-                         0.5*params['block_height']),
-                        (0.5*params['block_width'], -0.5*params['block_height'])])
+    poly_obj = Polygon([(-0.5*params['block_size_x'], -0.5*params['block_size_y']),
+                        (-0.5*params['block_size_x'],
+                         0.5*params['block_size_y']),
+                        (0.5*params['block_size_x'],
+                         0.5*params['block_size_y']),
+                        (0.5*params['block_size_x'], -0.5*params['block_size_y'])])
     plt.xlim((-0.2, 0.2))
     plt.ylim((-0.25, 0.25))
 
@@ -82,7 +82,7 @@ def visualize_poses__object(dataset, ee_poses_noisy, poses1, poses2, poses3, pos
     plt.plot(ee_center4__obj[0], ee_center4__obj[1],
              color='orange', marker='o')
     circ4 = Circle((ee_center4__obj[0], ee_center4__obj[1]), params['ee_radius'],
-                   facecolor='None', edgecolor='orange', linestyle='-', linewidth=2, alpha=0.75)
+                   facecolor='None', edgecolor='#e67e00', linestyle='-', linewidth=2, alpha=1.0)
 
     # plt.gca().add_patch(circ1)
     # plt.gca().add_patch(circ2)
@@ -100,16 +100,16 @@ def visualize_poses__object(dataset, ee_poses_noisy, poses1, poses2, poses3, pos
 
     plt.cla()
 
-def draw_object__world(pose, params, color_val):
+def draw_object__world(pose, params, color_val, alpha_val):
     yaw = pose[2]
     R = np.array([[np.cos(yaw), -np.sin(yaw)],
                   [np.sin(yaw), np.cos(yaw)]])
     offset = np.matmul(R, np.array(
-        [[0.5*params['block_width']], [0.5*params['block_height']]]))
+        [[0.5*params['block_size_x']], [0.5*params['block_size_y']]]))
     rect = Rectangle((pose[0] - offset[0], pose[1] - offset[1]),
-                     params['block_width'], params['block_height'],
+                     params['block_size_x'], params['block_size_y'],
                      angle=(np.rad2deg(yaw)), linewidth=2,
-                     facecolor='None', edgecolor=color_val, alpha=0.75)
+                     facecolor='None', edgecolor=color_val, alpha=alpha_val)
     return rect
 
 def visualize_poses__world(dataset, ee_poses_noisy, poses1, poses2, poses3, poses4, figfile, save_fig):
@@ -135,8 +135,8 @@ def visualize_poses__world(dataset, ee_poses_noisy, poses1, poses2, poses3, pose
     # # plot object
     # rect1 = draw_object__world(poses1[-1, :], params, 'green')
     # rect2 = draw_object__world(poses2[-1, :], params, 'blue')
-    rect3 = draw_object__world(poses3[-1, :], params, 'purple')
-    rect4 = draw_object__world(poses4[-1, :], params, 'orange')
+    rect3 = draw_object__world(poses3[-1, :], params, 'purple', 0.75)
+    rect4 = draw_object__world(poses4[-1, :], params, '#e67e00', 1.0)
 
     # plt.gca().add_patch(rect1)
     # plt.gca().add_patch(rect2)
@@ -150,8 +150,8 @@ def visualize_poses__world(dataset, ee_poses_noisy, poses1, poses2, poses3, pose
     plt.plot(poses3[0:-1, 0], poses3[0:-1, 1],
              color='purple', linestyle='-', label='iSAM2 (uncon)')
     plt.plot(poses4[0:-1, 0], poses4[0:-1, 1],
-             color='orange', linestyle='-', label='iSAM2 (con)')
-    plt.legend(loc="upper left")
+             color='#e67e00', linestyle='-', label='iSAM2 (con)')
+    plt.legend(loc='upper left')
 
     
     plt.draw()
@@ -162,25 +162,24 @@ def visualize_poses__world(dataset, ee_poses_noisy, poses1, poses2, poses3, pose
 
     plt.cla()
 
-
 def write_video(imgsrcdir, viddst):
 
     framerate = 10    
-    cmd = 'ffmpeg -y -r {0} -pattern_type glob -i '{1}/*.png' -c:v libx264 {2}.mp4'.format(
+    cmd = "ffmpeg -y -r {0} -pattern_type glob -i '{1}/*.png' -c:v libx264 {2}.mp4".format(
         framerate, imgsrcdir, viddst)
     call(cmd, shell=True)
 
-    cmd = 'convert -quality 0.1 -layers Optimize -delay {0} -loop 0 {1}/*.png {2}.gif'.format(
+    cmd = "convert -quality 0.1 -layers Optimize -delay {0} -loop 0 {1}/*.png {2}.gif".format(
         framerate, imgsrcdir, viddst)
-    call(cmd, shell=True)
+    # call(cmd, shell=True)
 
 def main():
     dataset_name = "logCircle1"  # logCircle1, logLine1
     std_contact = 0.05
-    srcdir = '../local/outputs/optimizer'
+    srcdir = "../local/outputs/optimizer"
 
-    viz_frame = 'world'  # world, object
-    dstdir = '../local/outputs/optimizer/viz_results/{0}/std_{1}/{2}'.format(
+    viz_frame = "object"  # world, object
+    dstdir = "../local/outputs/optimizer/viz_results/{0}/std_{1}/{2}".format(
         dataset_name, std_contact, viz_frame)
 
     filename = "../local/data/{0}.json".format(dataset_name)
@@ -193,32 +192,32 @@ def main():
         cmd = "mkdir -p {0}".format(dstdir)
         os.popen(cmd, 'r')
 
-    nsteps = 100
+    nsteps = 200
     for tstep in range(1, nsteps):
 
-        filename = '{0}/contact/std_{1}/{2}UnconIter{3}.json'.format(
+        filename = "{0}/contact/std_{1}/{2}UnconIter{3}.json".format(
             srcdir, std_contact, dataset_name, str(tstep).zfill(3))
         poses_uncon, poses_gt, poses_odom, ee_poses_noisy = read_poses_json(
             filename)
 
-        filename = '{0}/contact/std_{1}/{2}ConIter{3}.json'.format(
+        filename = "{0}/contact/std_{1}/{2}ConIter{3}.json".format(
             srcdir, std_contact, dataset_name, str(tstep).zfill(3))
         poses_con, poses_gt, poses_odom, ee_poses_noisy = read_poses_json(
             filename)
 
-        figfile = '{0}/{1:06d}.png'.format(dstdir, tstep)
-        if (viz_frame == 'world'):
+        figfile = "{0}/{1:06d}.png".format(dstdir, tstep)
+        if (viz_frame == "world"):
             visualize_poses__world(dataset, ee_poses_noisy, poses_gt,
                                    poses_odom, poses_uncon, poses_con, figfile, True)
-        elif (viz_frame == 'object'): 
+        elif (viz_frame == "object"): 
             if (tstep < 30): # hack: to skip contact_flag=0 poses
                 continue
             visualize_poses__object(dataset, ee_poses_noisy, poses_gt,
                                  poses_odom, poses_uncon, poses_con, figfile, True)
 
-    std_odom = 0.005
+    std_odom = 2.5e-3
     vidname = '{0}_stdodom_{1}_stdcontact_{2}'.format(dataset_name, std_odom, std_contact)
-    viddst = '../local/outputs/optimizer/viz_results/{0}'.format(vidname)
+    viddst = "../local/outputs/optimizer/viz_results/{0}".format(vidname)
     write_video(dstdir, viddst)
 
 

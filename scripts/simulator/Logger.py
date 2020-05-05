@@ -24,8 +24,8 @@ class Logger():
 
         # obj, endeff geometric params
         self.ee_radius = params['ee_radius']
-        self.block_width = params['block_width']
-        self.block_height = params['block_height']
+        self.block_size_x = params['block_size_x']
+        self.block_size_y = params['block_size_y']
 
         # time steps
         self.t = np.zeros((self.sim_length, 1))
@@ -59,10 +59,10 @@ class Logger():
     def get_shape_poly_vertices(self, shape_id):
 
         if (shape_id == 'rect'):
-            poly_vertices = np.array([[-0.5*self.block_width, -0.5*self.block_height],
-                                      [-0.5*self.block_width, 0.5*self.block_height],
-                                      [0.5*self.block_width, 0.5*self.block_height],
-                                      [0.5*self.block_width, -0.5*self.block_height]])
+            poly_vertices = np.array([[-0.5*self.block_size_x, -0.5*self.block_size_y],
+                                      [-0.5*self.block_size_x, 0.5*self.block_size_y],
+                                      [0.5*self.block_size_x, 0.5*self.block_size_y],
+                                      [0.5*self.block_size_x, -0.5*self.block_size_y]])
             # poly_vertices = poly_vertices.transpose()  # 2 x nv
 
         return poly_vertices

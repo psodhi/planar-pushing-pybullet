@@ -29,11 +29,12 @@ class Visualizer():
         self.tend = params['tend']
         self.dt = params['dt']
         self.sim_length = np.int((self.tend - self.tstart) / self.dt)
+        self.tspan = np.arange(self.tstart, self.tend, self.dt)
 
         # obj, endeff geometric params
         self.ee_radius = params['ee_radius']
-        self.block_width = params['block_width']
-        self.block_height = params['block_height']
+        self.block_size_x = params['block_size_x']
+        self.block_size_y = params['block_size_y']
 
         # time steps
         self.t = np.zeros((self.sim_length, 1))
@@ -83,10 +84,10 @@ class Visualizer():
 
     def proj_ee_center(self):
 
-        poly_obj = Polygon([(-0.0-0.5*self.block_width, -0.5*self.block_height),
-                            (-0.0-0.5*self.block_width, 0.5*self.block_height),
-                            (-0.0+0.5*self.block_width, 0.5*self.block_height),
-                            (-0.0+0.5*self.block_width, -0.5*self.block_height)])
+        poly_obj = Polygon([(-0.0-0.5*self.block_size_x, -0.5*self.block_size_y),
+                            (-0.0-0.5*self.block_size_x, 0.5*self.block_size_y),
+                            (-0.0+0.5*self.block_size_x, 0.5*self.block_size_y),
+                            (-0.0+0.5*self.block_size_x, -0.5*self.block_size_y)])
 
         ee_center_poly = np.zeros((self.sim_length, 2))
 
@@ -122,7 +123,7 @@ class Visualizer():
         incontact_idxs = incontact_idxs[:, 0]
 
         # save_fig = False
-        dst_dir = '../local/outputs/contact_info/traj_circle/'
+        dst_dir = "../local/outputs/contact_info/traj_circle/"
         if (save_fig):
             cmd = 'mkdir -p {0}'.format(dst_dir)
             os.popen(cmd, 'r')
@@ -150,10 +151,10 @@ class Visualizer():
             R = np.array([[np.cos(yaw), -np.sin(yaw)],
                           [np.sin(yaw), np.cos(yaw)]])
             offset = np.matmul(R, np.array(
-                [[0.5*self.block_width], [0.5*self.block_height]]))
+                [[0.5*self.block_size_x], [0.5*self.block_size_y]]))
             xb = self.obj_pos[idx, 0] - offset[0]
             yb = self.obj_pos[idx, 1] - offset[1]
-            rect = Rectangle((xb, yb), self.block_width, self.block_height, angle=(
+            rect = Rectangle((xb, yb), self.block_size_x, self.block_size_y, angle=(
                 np.rad2deg(yaw)), facecolor='None', edgecolor='grey')
             plt.gca().add_patch(rect)
 
@@ -165,14 +166,14 @@ class Visualizer():
                       head_width=5e-3, color='black')
 
             # # lateral friction forces
-            # plt.arrow(self.contact_pos_onB[idx, 0], self.contact_pos_onB[idx, 1],
-            #   sz_arw * self.lateral_frictiondir_onB[idx, 0],
-            #   sz_arw * self.lateral_frictiondir_onB[idx, 1],
-            #   head_width=5e-3, color="red")
-            # plt.arrow(self.contact_pos_onA[idx, 0], self.contact_pos_onA[idx, 1],
-            #           sz_arw * self.lateral_frictiondir_onA[idx, 0],
-            #           sz_arw * self.lateral_frictiondir_onA[idx, 1],
-            #           head_width=5e-3, color="green")
+            plt.arrow(self.contact_pos_onB[idx, 0], self.contact_pos_onB[idx, 1],
+                      sz_arw * self.lateral_frictiondir_onB[idx, 0],
+                      sz_arw * self.lateral_frictiondir_onB[idx, 1],
+                      head_width=5e-3, color="red")
+            plt.arrow(self.contact_pos_onA[idx, 0], self.contact_pos_onA[idx, 1],
+                      sz_arw * self.lateral_frictiondir_onA[idx, 0],
+                      sz_arw * self.lateral_frictiondir_onA[idx, 1],
+                      head_width=5e-3, color="green")
 
             plt.draw()
             plt.pause(1e-12)
@@ -192,7 +193,7 @@ class Visualizer():
         ee_center_poly = self.proj_ee_center()
 
         # save_fig = True
-        dst_dir = '../local/outputs/contact_factor__world/traj_circle/'
+        dst_dir = "../local/outputs/contact_factor__world/traj_circle/"
         if (save_fig):
             cmd = 'mkdir -p {0}'.format(dst_dir)
             os.popen(cmd, 'r')
@@ -238,10 +239,10 @@ class Visualizer():
             R = np.array([[np.cos(yaw), -np.sin(yaw)],
                           [np.sin(yaw), np.cos(yaw)]])
             offset = np.matmul(R, np.array(
-                [[0.5*self.block_width], [0.5*self.block_height]]))
+                [[0.5*self.block_size_x], [0.5*self.block_size_y]]))
             xb = self.obj_pos[tstep, 0] - offset[0]
             yb = self.obj_pos[tstep, 1] - offset[1]
-            rect = Rectangle((xb, yb), self.block_width, self.block_height, angle=(
+            rect = Rectangle((xb, yb), self.block_size_x, self.block_size_y, angle=(
                 np.rad2deg(yaw)), facecolor='None', edgecolor='grey')
             plt.gca().add_patch(rect)
 
@@ -264,15 +265,15 @@ class Visualizer():
         gs = GridSpec(nrows, ncols, figure=fig)
 
         # save_fig = True
-        dst_dir = '../local/outputs/contact_factor__obj/traj_circle/'
+        dst_dir = "../local/outputs/contact_factor__obj/traj_circle/"
         if (save_fig):
             cmd = 'mkdir -p {0}'.format(dst_dir)
             os.popen(cmd, 'r')
 
-        poly_obj = Polygon([(-0.5*self.block_width, -0.5*self.block_height),
-                            (-0.5*self.block_width, 0.5*self.block_height),
-                            (0.5*self.block_width, 0.5*self.block_height),
-                            (0.5*self.block_width, -0.5*self.block_height)])
+        poly_obj = Polygon([(-0.5*self.block_size_x, -0.5*self.block_size_y),
+                            (-0.5*self.block_size_x, 0.5*self.block_size_y),
+                            (0.5*self.block_size_x, 0.5*self.block_size_y),
+                            (0.5*self.block_size_x, -0.5*self.block_size_y)])
 
         skip = 50
         for tstep in range(0, self.sim_length, skip):
@@ -370,6 +371,11 @@ class Visualizer():
         incontact_idxs = np.argwhere(self.contact_flag == 1)
         incontact_idxs = incontact_idxs[:, 0]
 
+        # subsample
+        step = 1
+        skip = 50 # skip initial impulse iterations
+        incontact_idxs = incontact_idxs[skip:-1:step]
+
         ax = [None] * (nrows*ncols)
         ax[0] = fig.add_subplot(gs[0, 0])
         ax[1] = fig.add_subplot(gs[1, 0])
@@ -379,27 +385,43 @@ class Visualizer():
         ax[5] = fig.add_subplot(gs[2, 1])
 
         # force values
-        ax[0].plot(self.contact_normal_force[incontact_idxs, :])
-        ax[1].plot(self.lateral_friction_onA[incontact_idxs, :])
-        ax[2].plot(self.lateral_friction_onB[incontact_idxs, :])
+        f_normal_mag = (self.contact_normal_force[incontact_idxs, :])[:, 0]
+        f_lateral_mag = (self.lateral_frictiondir_onA[incontact_idxs, :])[:, 0]
+        f_mag = np.sqrt(f_normal_mag**2 + f_lateral_mag**2)
+
+        ax[0].plot(self.tspan[incontact_idxs], f_normal_mag)
+        ax[1].plot(self.tspan[incontact_idxs], f_lateral_mag)
+        ax[2].plot(self.tspan[incontact_idxs], f_mag)
+
+        ax[0].set_ylim([0, 0.2])
+        ax[1].set_ylim([0, 0.2])
+        ax[2].set_ylim([0, 0.2])
+        
+        ax[0].set_title('f_normal_mag')
+        ax[1].set_title('f_lateral_mag')
+        ax[2].set_title('f_mag')
 
         # force directions
-        ax[3].plot(self.contact_normal_onB[incontact_idxs, 0], color='red')
-        ax[3].plot(self.contact_normal_onB[incontact_idxs, 1], color='green')
+        nx = self.contact_normal_onB[incontact_idxs, 0]
+        ny = self.contact_normal_onB[incontact_idxs, 1]
+        ax[3].plot(self.tspan[incontact_idxs], nx, color='red', label='f_normal_x')
+        ax[3].plot(self.tspan[incontact_idxs], ny, color='green', label='f_normal_y')
         # ax[3].plot(self.contact_normal_onB[incontact_idxs, 2], color='blue')
-        ax[3].legend(['x dxn', 'y dxn'])
+        # ax[3].legend(['x dxn', 'y dxn'])
+        ax[3].legend(loc='upper left')
+        ax[3].set_title('contact_normal_onB')
 
-        ax[4].plot(self.lateral_frictiondir_onA[incontact_idxs, 0], color='red')
-        ax[4].plot(self.lateral_frictiondir_onA[incontact_idxs, 1],
-                   color='green')
+        ax[4].plot(self.tspan[incontact_idxs], self.lateral_frictiondir_onA[incontact_idxs, 0], color='red', label='f_latonA_x')
+        ax[4].plot(self.tspan[incontact_idxs], self.lateral_frictiondir_onA[incontact_idxs, 1], color='green', label='f_latonA_y')
         # ax[4].plot(self.lateral_frictiondir_onA[incontact_idxs, 2], color='blue')
-        ax[4].legend(['x dxn', 'y dxn'])
+        ax[4].legend(loc='upper left')
+        ax[4].set_title('lateral_frictiondir_onA')
 
-        ax[5].plot(self.lateral_frictiondir_onB[incontact_idxs, 0], color='red')
-        ax[5].plot(self.lateral_frictiondir_onB[incontact_idxs, 1],
-                   color='green')
+        ax[5].plot(self.tspan[incontact_idxs], self.lateral_frictiondir_onB[incontact_idxs, 0], color='red', label='f_latonB_x')
+        ax[5].plot(self.tspan[incontact_idxs], self.lateral_frictiondir_onB[incontact_idxs, 1], color='green', label='f_latonB_y')
         # ax[5].plot(self.lateral_frictiondir_onB[incontact_idxs, 2], color='blue')
-        ax[5].legend(['x dxn', 'y dxn'])
+        ax[5].legend(loc='upper left')
+        ax[5].set_title('lateral_frictiondir_onB')
 
         plt.show()
 
