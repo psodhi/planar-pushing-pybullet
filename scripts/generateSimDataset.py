@@ -1,4 +1,5 @@
-from simulator.Environments import EnvKukaBlock
+from simulator.EnvKukaArmBlock import EnvKukaArmBlock
+from simulator.EnvFloatingArmBlock import EnvFloatingArmBlock
 from simulator.Trajectories import Trajectories
 from simulator.Logger import Logger
 from simulator.Visualizer import Visualizer
@@ -11,18 +12,19 @@ import pdb
 import json
 
 
-def init_params():
+def init_params_kukablock():
 
     # sim params
     params = {}
     params['tstart'] = 0.0
-    params['tend'] = 15.0
+    params['tend'] = 10.0
     params['dt'] = 1e-3
 
     # end effector, object geometries
     params['ee_radius'] = 0.051
-    params['block_width'] = 0.30
-    params['block_height'] = 0.15
+    params['block_size_x'] = 0.30
+    params['block_size_y'] = 0.15
+    params['block_size_z'] = 0.05
 
     # initial end effector pose
     params['init_ee_pos'] = [-0.4, -0.26, 0.01]
@@ -34,32 +36,75 @@ def init_params():
 
     return params
 
-
-def main():
+def planar_pushing_kukablock():
     vis_flag = True
 
-    params = init_params()
-    envkb = EnvKukaBlock(params, vis_flag)
+    params = init_params_kukablock()
+    env = EnvKukaArmBlock(params, vis_flag)
     traj = Trajectories(params)
 
     num_runs = 1
     for run in range(0, num_runs):
+        # traj_vec = traj.get_traj_line(0.0)
         traj_vec = traj.get_traj_circle()
-        # traj_vec = traj.get_traj_line()
 
-        envkb.simulate(traj_vec)
-        # envkb.simulate_reinitialize(traj_vec)
+        env.simulate(traj_vec)
+        # env.simulate_reinitialize(traj_vec)
 
-    logger = envkb.get_logger()
+    logger = env.get_logger()
     dataset_name = "logCircle1"
     logger.save_data2d_json("../local/data/{0}.json".format(dataset_name))
 
     visualizer = Visualizer(params, logger)
+    visualizer.plot_force_data()
     # visualizer.visualize_contact_info()
-    visualizer.visualize_contact_factor__world()
+    # visualizer.visualize_contact_factor__world()
     # visualizer.visualize_contact_factor__obj()
     # visualizer.plot_traj_contact_data()
-    # visualizer.plot_force_data()
+
+def init_params_floatingblock():
+    
+    # sim params
+    params = {}
+    params['tstart'] = 0.0
+    params['tend'] = 2.0
+    params['dt'] = 1e-2
+
+    # end effector, object geometries
+    params['ee_radius'] = 0.051
+    params['block_size_x'] = 0.15
+    params['block_size_y'] = 0.30
+    params['block_size_z'] = 0.15
+
+    # initial end effector pose
+    init_ee_pos_z = 0.5 * params['block_size_z']
+    params['init_ee_pos'] = [-0.3, 0, init_ee_pos_z]
+    params['init_ee_ori'] = pb.getQuaternionFromEuler([0, 0, -np.pi])
+
+    # initial object pose
+    params['init_obj_pos'] = [0, 0.0, 1.0]
+    params['init_obj_ori'] = pb.getQuaternionFromEuler([0, 0, 0])
+
+    return params
+
+def planar_pushing_floatingblock():
+    vis_flag = True
+
+    params = init_params_floatingblock()
+    env = EnvFloatingArmBlock(params, vis_flag)
+    traj = Trajectories(params)
+
+    traj_vec = traj.get_traj_circle()
+    env.simulate()
+        
+    logger = env.get_logger()
+    visualizer = Visualizer(params, logger)
+    visualizer.plot_force_data()
+    visualizer.visualize_contact_info()
+
+def main():
+    # planar_pushing_kukablock()
+    planar_pushing_floatingblock()
     
 
 if __name__ == "__main__":

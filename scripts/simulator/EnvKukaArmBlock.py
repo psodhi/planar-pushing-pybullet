@@ -15,7 +15,7 @@ from matplotlib.patches import Rectangle, Circle
 import time
 
 
-class EnvKukaBlock():
+class EnvKukaArmBlock():
 
     def __init__(self, params, vis_flag=True):
 
@@ -26,6 +26,8 @@ class EnvKukaBlock():
             pb.connect(pb.DIRECT)
 
         # read in sim params
+        self.params = params
+
         self.tstart = params['tstart']
         self.tend = params['tend']
         self.dt = params['dt']
@@ -55,6 +57,7 @@ class EnvKukaBlock():
         self.obj_id = pb.loadURDF("../models/objects/block.urdf")
         pb.resetBasePositionAndOrientation(
             self.obj_id, self.init_obj_pos, self.init_obj_ori)
+        self.verify_object_shape()
 
         # set gravity
         pb.setGravity(0, 0, -10)
@@ -85,6 +88,20 @@ class EnvKukaBlock():
         cam_pitch = -16
         pb.resetDebugVisualizerCamera(
             cam_dist, cam_yaw, cam_pitch, cam_tgt_pos)
+
+    def verify_object_shape(self):
+        visual_data = pb.getVisualShapeData(self.obj_id, -1)
+        collision_data = pb.getCollisionShapeData(self.obj_id, -1)
+
+        visual_dims = visual_data[0][3]
+        collision_dims = collision_data[0][3]
+
+        assert (self.params['block_size_x'] == visual_dims[0]
+                == collision_dims[0]), "object x-dim mismatch."
+        assert (self.params['block_size_y'] == visual_dims[1]
+                == collision_dims[1]), "object y-dim mismatch."
+        assert (self.params['block_size_z'] == visual_dims[2]
+                == collision_dims[2]), "object z-dim mismatch."
 
     def get_logger(self):
         return self.logger
@@ -125,7 +142,7 @@ class EnvKukaBlock():
             self.logger.lateral_frictiondir_onA[tstep, :] = contact_info[0][11]
             self.logger.lateral_friction_onB[tstep, :] = contact_info[0][12]
             self.logger.lateral_frictiondir_onB[tstep, :] = contact_info[0][13]
-
+    
     def reset_sim(self):
 
         # reset joint states to nominal pose (overrides physics simulation)
@@ -135,6 +152,10 @@ class EnvKukaBlock():
         # reset block pose
         pb.resetBasePositionAndOrientation(
             self.obj_id, self.init_obj_pos, self.init_obj_ori)
+
+    def step_sim(self):
+        for i in range(1):
+            pb.stepSimulation()
 
     def simulate_reinitialize(self, traj_vec):
         """" Sticky contacts test: Re-initialize simulation with states from previous time step """
@@ -167,7 +188,8 @@ class EnvKukaBlock():
                     pb.setJointMotorControl2(bodyIndex=self.kuka_id, jointIndex=i, controlMode=pb.POSITION_CONTROL,
                                              targetPosition=joint_poses[i], targetVelocity=0, force=500, positionGain=0.3, velocityGain=1)
 
-            pb.stepSimulation()
+            self.step_sim()
+
             self.log_step(tstep)
             # time.sleep(1. / 240.)
 
@@ -176,6 +198,8 @@ class EnvKukaBlock():
 
     def simulate(self, traj_vec):
         self.reset_sim()
+        for i in range(100):
+            pb.stepSimulation()
 
         for tstep in range(0, self.sim_length):
 
