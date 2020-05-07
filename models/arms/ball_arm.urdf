@@ -37,7 +37,7 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
-          <sphere radius="0.051"/>
+          <sphere radius="0.04"/>
         </geometry>
         <material name="Green">
           <color rgba="0 1 0 1"/>
@@ -46,7 +46,7 @@
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
-          <sphere radius="0.05"/>
+          <sphere radius="0.04"/>
         </geometry>
       </collision>
   </link>
