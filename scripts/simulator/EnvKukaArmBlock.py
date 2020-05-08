@@ -12,8 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Circle
 
-import time
-
+import pdb
 
 class EnvKukaArmBlock():
 
@@ -45,16 +44,16 @@ class EnvKukaArmBlock():
 
         # add pushing plane (slightly below robot arm base)
         self.plane_id = pb.loadURDF(
-            "plane.urdf", [0, 0, -0.05], useFixedBase=True)
+            "plane.urdf", [0, 0, -0.15], useFixedBase=True)
 
         # add kuka arm
         self.kuka_id = pb.loadURDF(
-            "kuka_iiwa/model.urdf", [0, 0, 0], useFixedBase=True)
+            "../models/arms/kuka_iiwa/kuka_with_endeff.urdf", [0, 0, 0], useFixedBase=True)
         pb.resetBasePositionAndOrientation(
             self.kuka_id, [0, 0, 0], [0, 0, 0, 1])
 
         # add object being pushed
-        self.obj_id = pb.loadURDF("../models/objects/block.urdf")
+        self.obj_id = pb.loadURDF("../models/objects/block1.urdf")
         pb.resetBasePositionAndOrientation(
             self.obj_id, self.init_obj_pos, self.init_obj_ori)
         self.verify_object_shape()
@@ -63,16 +62,17 @@ class EnvKukaArmBlock():
         pb.setGravity(0, 0, -10)
 
         # set/get arm params
-        self.kuka_ee_idx = 6
+        # pdb.set_trace()
+        self.kuka_ee_idx = 7
         self.num_joints = pb.getNumJoints(self.kuka_id)
         self.joint_ids = [i for i in range(self.num_joints)]
 
-        # joint damping coefficents
-        self.jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+        # joint damping coefficients
+        self.jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
         # reset joint states to nominal pose (overrides physics simulation)
         self.reset_joint_states = [0, 0, 0, 0.5 *
-                                   math.pi, 0, -math.pi * 0.5 * 0.66, 0]
+                                   math.pi, 0, -math.pi * 0.5 * 0.66, 0, 0]
         for i in range(self.num_joints):
             pb.resetJointState(self.kuka_id, i, self.reset_joint_states[i])
 
@@ -198,7 +198,7 @@ class EnvKukaArmBlock():
 
     def simulate(self, traj_vec):
         self.reset_sim()
-        for i in range(100):
+        for i in range(1000):
             pb.stepSimulation()
 
         for tstep in range(0, self.sim_length):
