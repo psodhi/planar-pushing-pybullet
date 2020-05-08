@@ -129,7 +129,7 @@ def visualize_poses__world(dataset, ee_poses_noisy, poses1, poses2, poses3, pose
     plt.plot(ee_poses_noisy[-1][0], ee_poses_noisy[-1]
              [1], color='black', marker='o')
     circ = Circle((ee_poses_noisy[-1][0], ee_poses_noisy[-1][1]), params['ee_radius'],
-                  facecolor='None', edgecolor='black', linestyle='-', linewidth='2')
+                  facecolor='None', edgecolor='black', linestyle='-', linewidth=2)
     plt.gca().add_patch(circ)
 
     # # plot object
@@ -162,6 +162,52 @@ def visualize_poses__world(dataset, ee_poses_noisy, poses1, poses2, poses3, pose
 
     plt.cla()
 
+def visualize_poses_history__world(dataset, ee_poses_noisy, poses1, poses2, poses3, poses4, figfile, save_fig):
+    
+    vis_flag = 3 # 1:gt, 2:odom, 3:uncon, 4:con
+    params = dataset['params']
+
+    plt.xlim((-0.6, 0.6))
+    plt.ylim((-0.2, 0.8))
+    
+    start = 50
+    nposes = poses3.shape[0]
+    skip = 25
+    idxs_history = range(start, nposes, skip)
+    for idx in idxs_history:
+        plt.plot(ee_poses_noisy[idx][0], ee_poses_noisy[idx][1], color='grey', marker='o', alpha=0.5)
+        circ = Circle((ee_poses_noisy[idx][0], ee_poses_noisy[idx][1]), params['ee_radius'],
+                  facecolor='None', edgecolor='grey', linestyle='-', linewidth=2, alpha=0.5)
+        plt.gca().add_patch(circ)
+        
+        if (vis_flag == 3):
+            rect3 = draw_object__world(poses3[idx, :], params, 'grey', 0.5)
+            plt.gca().add_patch(rect3)
+
+            if (idx > start):
+                plt.plot(poses3[idx, 0], poses3[idx, 1],
+                 color='purple', marker='o', alpha = 0.5)
+                plt.plot(poses3[[(idx-skip), idx], 0], poses3[[(idx-skip), idx], 1],
+                 color='purple', linestyle='-', linewidth = 2, label='iSAM2 (uncon)', alpha = 0.5)
+
+        elif (vis_flag == 4):
+            rect4 = draw_object__world(poses4[idx, :], params, 'grey', 0.5)
+            plt.gca().add_patch(rect4)
+
+            if (idx > start):
+                plt.plot(poses4[idx, 0], poses4[idx, 1],
+                    color='#e67e00', marker='o', alpha = 0.5)        
+                plt.plot(poses4[[(idx-skip), idx], 0], poses4[[(idx-skip), idx], 1],
+                    color='#e67e00', linestyle='-', linewidth = 2, label='iSAM2 (con)', alpha = 0.5)
+    
+    plt.draw()
+    plt.pause(1e-12)
+
+    if(save_fig):
+        plt.savefig(figfile)
+
+    plt.cla()
+
 def write_video(imgsrcdir, viddst):
 
     framerate = 10    
@@ -178,7 +224,7 @@ def main():
     std_contact = 0.05
     srcdir = "../local/outputs/optimizer"
 
-    viz_frame = "object"  # world, object
+    viz_frame = "world"  # world, object
     dstdir = "../local/outputs/optimizer/viz_results/{0}/std_{1}/{2}".format(
         dataset_name, std_contact, viz_frame)
 
@@ -192,7 +238,7 @@ def main():
         cmd = "mkdir -p {0}".format(dstdir)
         os.popen(cmd, 'r')
 
-    nsteps = 200
+    nsteps = 300
     for tstep in range(1, nsteps):
 
         filename = "{0}/contact/std_{1}/{2}UnconIter{3}.json".format(
@@ -209,6 +255,8 @@ def main():
         if (viz_frame == "world"):
             visualize_poses__world(dataset, ee_poses_noisy, poses_gt,
                                    poses_odom, poses_uncon, poses_con, figfile, True)
+            # visualize_poses_history__world(dataset, ee_poses_noisy, poses_gt,
+                                #    poses_odom, poses_uncon, poses_con, figfile, True)
         elif (viz_frame == "object"): 
             if (tstep < 30): # hack: to skip contact_flag=0 poses
                 continue
