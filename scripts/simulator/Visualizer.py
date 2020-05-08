@@ -16,6 +16,7 @@ from matplotlib.gridspec import GridSpec
 import os
 import pdb
 
+plt.rcParams.update({'font.size': 18})
 
 class Visualizer():
 
@@ -70,6 +71,13 @@ class Visualizer():
         R = np.array([[np.cos(yaw), np.sin(yaw)], [-np.sin(yaw), np.cos(yaw)]])
         t = -frame_pose_2d[0:2]
         pt_tf = np.matmul(R, pt+t)
+
+        return pt_tf
+
+    def rotate_to_frame2d(self, pt, frame_pose_2d):
+        yaw = frame_pose_2d[2, 0]
+        R = np.array([[np.cos(yaw), np.sin(yaw)], [-np.sin(yaw), np.cos(yaw)]])
+        pt_tf = np.matmul(R, pt)
 
         return pt_tf
 
@@ -129,12 +137,16 @@ class Visualizer():
             os.popen(cmd, 'r')
 
         fig = plt.figure(figsize=(10, 8))
-        skip = 50
-        for i in range(0, len(incontact_idxs), skip):
+        step_skip = 50
+        for i in range(0, len(incontact_idxs), step_skip):
+            # pdb.set_trace()
+
             idx = incontact_idxs[i]
 
             plt.xlim((-0.6, 0.6))
             plt.ylim((-0.2, 0.8))
+            # plt.xlim((-2, 2))
+            # plt.ylim((-1, 1))
             sz_arw = 0.05
 
             # plot end effector (A: endeff, B: object)
@@ -363,7 +375,7 @@ class Visualizer():
 
     def plot_force_data(self, save_fig=False):
 
-        fig = plt.figure(constrained_layout=True)
+        fig = plt.figure(constrained_layout=True, figsize=(10, 8))
         nrows = 3
         ncols = 2
         gs = GridSpec(nrows, ncols, figure=fig)
@@ -373,7 +385,7 @@ class Visualizer():
 
         # subsample
         step = 1
-        skip = 50 # skip initial impulse iterations
+        skip = 50  # skip initial impulse iterations
         incontact_idxs = incontact_idxs[skip:-1:step]
 
         ax = [None] * (nrows*ncols)
@@ -386,17 +398,17 @@ class Visualizer():
 
         # force values
         f_normal_mag = (self.contact_normal_force[incontact_idxs, :])[:, 0]
-        f_lateral_mag = (self.lateral_frictiondir_onA[incontact_idxs, :])[:, 0]
+        f_lateral_mag = (self.lateral_friction_onA[incontact_idxs, :])[:, 0]
         f_mag = np.sqrt(f_normal_mag**2 + f_lateral_mag**2)
 
         ax[0].plot(self.tspan[incontact_idxs], f_normal_mag)
         ax[1].plot(self.tspan[incontact_idxs], f_lateral_mag)
         ax[2].plot(self.tspan[incontact_idxs], f_mag)
 
-        ax[0].set_ylim([0, 0.2])
-        ax[1].set_ylim([0, 0.2])
-        ax[2].set_ylim([0, 0.2])
-        
+        # ax[0].set_ylim([0, 0.2])
+        # ax[1].set_ylim([0, 0.2])
+        # ax[2].set_ylim([0, 0.2])
+
         ax[0].set_title('f_normal_mag')
         ax[1].set_title('f_lateral_mag')
         ax[2].set_title('f_mag')
@@ -404,24 +416,135 @@ class Visualizer():
         # force directions
         nx = self.contact_normal_onB[incontact_idxs, 0]
         ny = self.contact_normal_onB[incontact_idxs, 1]
-        ax[3].plot(self.tspan[incontact_idxs], nx, color='red', label='f_normal_x')
-        ax[3].plot(self.tspan[incontact_idxs], ny, color='green', label='f_normal_y')
+        ax[3].plot(self.tspan[incontact_idxs], nx,
+                   color='red', label='f_normal_x')
+        ax[3].plot(self.tspan[incontact_idxs], ny,
+                   color='green', label='f_normal_y')
         # ax[3].plot(self.contact_normal_onB[incontact_idxs, 2], color='blue')
         # ax[3].legend(['x dxn', 'y dxn'])
         ax[3].legend(loc='upper left')
         ax[3].set_title('contact_normal_onB')
 
-        ax[4].plot(self.tspan[incontact_idxs], self.lateral_frictiondir_onA[incontact_idxs, 0], color='red', label='f_latonA_x')
-        ax[4].plot(self.tspan[incontact_idxs], self.lateral_frictiondir_onA[incontact_idxs, 1], color='green', label='f_latonA_y')
+        ax[4].plot(self.tspan[incontact_idxs],
+                   self.lateral_frictiondir_onA[incontact_idxs, 0], color='red', label='f_latonA_x')
+        ax[4].plot(self.tspan[incontact_idxs], self.lateral_frictiondir_onA[incontact_idxs,
+                                                                            1], color='green', label='f_latonA_y')
         # ax[4].plot(self.lateral_frictiondir_onA[incontact_idxs, 2], color='blue')
         ax[4].legend(loc='upper left')
         ax[4].set_title('lateral_frictiondir_onA')
 
-        ax[5].plot(self.tspan[incontact_idxs], self.lateral_frictiondir_onB[incontact_idxs, 0], color='red', label='f_latonB_x')
-        ax[5].plot(self.tspan[incontact_idxs], self.lateral_frictiondir_onB[incontact_idxs, 1], color='green', label='f_latonB_y')
+        ax[5].plot(self.tspan[incontact_idxs],
+                   self.lateral_frictiondir_onB[incontact_idxs, 0], color='red', label='f_latonB_x')
+        ax[5].plot(self.tspan[incontact_idxs], self.lateral_frictiondir_onB[incontact_idxs,
+                                                                            1], color='green', label='f_latonB_y')
         # ax[5].plot(self.lateral_frictiondir_onB[incontact_idxs, 2], color='blue')
         ax[5].legend(loc='upper left')
         ax[5].set_title('lateral_frictiondir_onB')
+
+        plt.show()
+
+    def cross2d(self, v1, v2):
+        return v1[0]*v2[1] - v1[1]*v2[0]
+
+    def plot_qs_model1_errors(self):
+
+        tau_max = self.params['mu_g'] * np.sqrt(self.block_size_x**2 + self.block_size_y**2) * \
+            self.params['block_mass'] * self.params['gravity']
+        f_max = self.params['mu_g'] * \
+            self.params['block_mass'] * self.params['gravity']
+        c_sq = (tau_max / f_max) ** 2
+
+        step_skip = 1
+        init_skip = 50
+        step_range = range(init_skip, self.sim_length, step_skip)
+        nsteps = len(step_range)
+        error_xy_vec = np.zeros((nsteps, 2))
+        twist_xyh_vec = np.zeros((nsteps, 3))
+
+        ee_pose2d_prev__world = [self.ee_pos[init_skip, :][0],
+                                 self.ee_pos[init_skip, :][1], self.ee_ori_rpy[init_skip, :][2]]
+        obj_pose2d_prev__world = [self.obj_pos[init_skip, :][0],
+                                  self.obj_pos[init_skip, :][1], self.obj_ori_rpy[init_skip, :][2]]
+
+        idx = 0
+        for tstep in step_range:
+
+            if (self.contact_flag[tstep] == False):
+                continue
+
+            # obj, endeff poses at curr, prev time steps
+            if (tstep > init_skip):
+                ee_pose2d_prev__world = np.array([self.ee_pos[tstep-step_skip, :][0],
+                                                  self.ee_pos[tstep-step_skip, :][1], self.ee_ori_rpy[tstep-step_skip, :][2]])
+                obj_pose2d_prev__world = np.array([self.obj_pos[tstep-step_skip, :][0],
+                                                   self.obj_pos[tstep-step_skip, :][1], self.obj_ori_rpy[tstep-step_skip, :][2]])
+            obj_pose2d_curr__world = np.array(
+                [self.obj_pos[tstep, :][0], self.obj_pos[tstep, :][1], self.obj_ori_rpy[tstep, :][2]])
+            ee_pose2d_curr__world = np.array(
+                [self.ee_pos[tstep, :][0], self.ee_pos[tstep, :][1], self.ee_ori_rpy[tstep, :][2]])
+
+            # measurements at current time step
+            contact_point__world = self.contact_pos_onB[tstep, 0:2]
+            contact_normal__world = -self.contact_normal_onB[tstep, 0:2]
+            f_normal = self.contact_normal_force[tstep] * - \
+                self.contact_normal_onB[tstep, 0:2]
+            f_lateral = self.lateral_friction_onA[tstep] * - \
+                self.lateral_friction_onA[tstep]
+            contact_force__world = f_normal + f_lateral
+
+            # transform measurement to object frame
+            frame_pose_2d = np.array([[obj_pose2d_curr__world[0]], [obj_pose2d_curr__world[1]],
+                                      [obj_pose2d_curr__world[2]]])
+            contact_point__obj = self.transform_to_frame2d(
+                contact_point__world[:, None], obj_pose2d_curr__world[:, None])
+            contact_normal__obj = self.rotate_to_frame2d(
+                contact_normal__world[:, None], obj_pose2d_curr__world[:, None])
+            contact_force__obj = self.rotate_to_frame2d(
+                contact_force__world[:, None], obj_pose2d_curr__world[:, None])
+
+            # compute moment tau_z
+            tau_z = self.cross2d(contact_point__obj,
+                                 contact_force__obj)  # r x f
+
+            # compute velocities
+            vel__obj = self.rotate_to_frame2d(
+                obj_pose2d_curr__world[0:2] - obj_pose2d_prev__world[0:2], frame_pose_2d)
+            omega = (obj_pose2d_curr__world[2] - obj_pose2d_prev__world[2])
+            omega = (omega + np.pi) % (2 * np.pi) - np.pi  # wrap2pi
+
+            f_x = contact_force__obj[0]
+            f_y = contact_force__obj[1]
+            v_x = vel__obj[0]
+            v_y = vel__obj[1]
+
+            error_xy_vec[idx, :] = [v_x * tau_z - c_sq * f_x * omega, v_y * tau_z - c_sq * f_y * omega]
+            twist_xyh_vec[idx, :] = [v_x, v_y, omega]
+
+            idx = idx + 1
+        
+        fig = plt.figure(constrained_layout=True)
+        nrows = 2; ncols = 1
+        gs = GridSpec(nrows, ncols, figure=fig)
+        ax = [None] * (nrows*ncols)
+
+        ax[0] = fig.add_subplot(gs[0, 0])
+        ax[1] = fig.add_subplot(gs[1, 0])
+
+        # pdb.set_trace()
+        error_vec = np.sqrt(error_xy_vec[:, 0]**2 + error_xy_vec[:, 1]**2)
+        ax[0].plot(self.tspan[step_range], error_vec, label='error')
+
+        ax[1].plot(self.tspan[step_range], twist_xyh_vec[:, 0], color='red', label='v_x')
+        ax[1].plot(self.tspan[step_range], twist_xyh_vec[:, 1], color='green', label='v_y')
+        ax[1].plot(self.tspan[step_range], twist_xyh_vec[:, 2], color='blue', label='$\omega$')
+
+        ax[0].set_title('qs factor errors')
+        ax[0].set_ylim((-0.001, 0.02))
+        ax[0].set_xlabel('time (s)')
+
+        ax[1].legend(loc='upper left')
+        ax[1].set_title('object velocity')
+        ax[1].set_xlabel('time (s)')
 
         plt.show()
 
