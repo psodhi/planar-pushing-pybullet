@@ -51,7 +51,7 @@ class EnvFloatingArmBlock():
 
         # add floating arm
         self.arm_id = pb.loadURDF(
-            "../models/objects/ball_arm.urdf", [0, 0, 0], globalScaling=1.0, useFixedBase=False)
+            "../models/arms/ball_arm.urdf", [0, 0, 0], globalScaling=1.0, useFixedBase=False)
         pb.resetBasePositionAndOrientation(
             self.arm_id, [0, 0, 0], [0, 0, 0, 1])
 
@@ -166,7 +166,24 @@ class EnvFloatingArmBlock():
 
         return (line_ee, line_obj)
 
-    def push_const_vel(self):
+    def transform_to_frame2d(self, pt, frame_pose2d):
+        yaw = frame_pose2d[2, 0]
+        R = np.array([[np.cos(yaw), np.sin(yaw)], [-np.sin(yaw), np.cos(yaw)]])
+        t = -frame_pose2d[0:2]
+        pt_tf = np.matmul(R, pt+t)
+
+        return pt_tf
+
+    def transform_from_frame2d(self, pt, frame_pose2d):
+        yaw = frame_pose2d[2, 0]
+        R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
+        t = frame_pose2d[0:2]
+        pt_tf = np.matmul(R, pt)
+        pt_tf = t + pt_tf
+        
+        return pt_tf
+
+    def push_const_vel__object(self):
         obj_pos, obj_ori = pb.getBasePositionAndOrientation(self.obj_id)
         link_state = pb.getLinkState(self.arm_id, self.arm_ee_idx)
         ee_pos = link_state[0]
@@ -175,7 +192,37 @@ class EnvFloatingArmBlock():
         obj_yaw = pb.getEulerFromQuaternion(obj_ori)[2]
         ee_yaw = pb.getEulerFromQuaternion(ee_ori)[2]
 
-        vel = [5, 0, 0]  # vx, vy, omega
+        vel = [3, 0, 0]  # vx, vy, omega
+        
+        # transform ee_pos from world to object frame
+        ee_pos__world = np.array([[ee_pos[0]], [ee_pos[1]]])
+        frame_pose2d = np.array([[obj_pos[0]], [obj_pos[1]], [obj_yaw]])
+        ee_pos__object = self.transform_to_frame2d(ee_pos__world, frame_pose2d)
+
+        # Calculate new arm endeff position
+        ee_new_pos__object = np.array([ee_pos__object[0] + self.dt * vel[0], ee_pos__object[1] + self.dt * vel[1]])
+        ee_new_pos__world = self.transform_from_frame2d(ee_new_pos__object, frame_pose2d)
+        ee_new_z = 0.5 * self.params['block_size_z']
+
+        # Calculate new arm endeff orientation
+        ee_init_yaw = pb.getEulerFromQuaternion(self.init_ee_ori)[2]
+        ee_new_yaw = ee_init_yaw + obj_yaw 
+        # ee_new_yaw = ee_yaw + self.dt * vel[2]
+
+        ee_new_pos = [ee_new_pos__world[0,0], ee_new_pos__world[1,0], ee_new_z]
+        ee_new_ori = [0, 0, ee_new_yaw]
+        return (ee_new_pos, ee_new_ori)
+
+    def push_const_vel__world(self):
+        obj_pos, obj_ori = pb.getBasePositionAndOrientation(self.obj_id)
+        link_state = pb.getLinkState(self.arm_id, self.arm_ee_idx)
+        ee_pos = link_state[0]
+        ee_ori = link_state[1]
+
+        obj_yaw = pb.getEulerFromQuaternion(obj_ori)[2]
+        ee_yaw = pb.getEulerFromQuaternion(ee_ori)[2]
+
+        vel = [4, 0, 0]  # vx, vy, omega
 
         # Calculate new arm endeff position
         ee_new_x = ee_pos[0] + self.dt * vel[0]
@@ -183,10 +230,9 @@ class EnvFloatingArmBlock():
         ee_new_z = 0.5 * self.params['block_size_z']
 
         # Calculate new arm endeff orientation
-        # ee_init_yaw = pb.getEulerFromQuaternion(self.init_ee_ori)[2]
-        # ee_new_yaw = ee_init_yaw + obj_yaw 
-
-        ee_new_yaw = ee_yaw + self.dt * vel[2]
+        ee_init_yaw = pb.getEulerFromQuaternion(self.init_ee_ori)[2]
+        ee_new_yaw = ee_init_yaw + obj_yaw 
+        # ee_new_yaw = ee_yaw + self.dt * vel[2]
         
         ee_new_pos = [ee_new_x, ee_new_y, ee_new_z]
         ee_new_ori = [0, 0, ee_new_yaw]
@@ -201,7 +247,7 @@ class EnvFloatingArmBlock():
         obj_yaw = pb.getEulerFromQuaternion(obj_ori)[2]
         ee_yaw = pb.getEulerFromQuaternion(ee_ori)[2]
 
-        dist = 5e-2
+        dist = 4e-2
 
         # Calculate new arm endeff position
         ee_new_x = ee_pos[0] + dist * math.cos(obj_yaw)
@@ -213,8 +259,8 @@ class EnvFloatingArmBlock():
         vec = np.array([obj_pos[0] - ee_new_x,
                         obj_pos[1] - ee_new_y, 0])
         vec = vec / np.linalg.norm(vec)
-        ee_new_yaw = ee_init_yaw + \
-            (math.atan2(vec[0], -vec[1]) - np.pi / 2) % (2 * np.pi)
+        ee_new_yaw = ee_init_yaw + math.atan2(vec[0], -vec[1])
+        ee_new_yaw = (ee_new_yaw - np.pi/2) % (2 * np.pi) + 0.1
 
         ee_new_pos = [ee_new_x, ee_new_y, ee_new_z]
         ee_new_ori = [0, 0, ee_new_yaw]
@@ -230,7 +276,7 @@ class EnvFloatingArmBlock():
 
             # print("Simulation time step: {0}".format(tstep))
 
-            ee_new_pos, ee_new_ori  = self.push_const_vel()
+            ee_new_pos, ee_new_ori  = self.push_const_vel__object()
             # ee_new_pos, ee_new_ori = self.push_obj_dir()
 
             # Move arm to new position/orientation

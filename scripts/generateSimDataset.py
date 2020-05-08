@@ -17,23 +17,28 @@ def init_params_kukablock():
     # sim params
     params = {}
     params['tstart'] = 0.0
-    params['tend'] = 10.0
+    params['tend'] = 15.0
     params['dt'] = 1e-3
+    params['gravity'] = 10
 
     # end effector, object geometries
-    params['ee_radius'] = 0.051
-    params['block_size_x'] = 0.30
+    params['ee_radius'] = 0.02
+    params['block_size_x'] = 0.4
     params['block_size_y'] = 0.15
     params['block_size_z'] = 0.05
+    params['block_mass'] = 0.5
 
     # initial end effector pose
-    params['init_ee_pos'] = [-0.4, -0.26, 0.01]
+    params['init_ee_pos'] = [-0.4, -0.28, 0.01]
     params['init_ee_ori'] = pb.getQuaternionFromEuler([0, -np.pi, 0])
 
     # initial object pose
     params['init_obj_pos'] = [-0.4, 0, 0.1]
     params['init_obj_ori'] = [0, 0, 0, 1]
 
+    # friction params
+    params['mu_g'] = 0.8
+    
     return params
 
 def planar_pushing_kukablock():
@@ -56,8 +61,9 @@ def planar_pushing_kukablock():
     logger.save_data2d_json("../local/data/{0}.json".format(dataset_name))
 
     visualizer = Visualizer(params, logger)
-    visualizer.plot_force_data()
-    # visualizer.visualize_contact_info()
+    # visualizer.plot_force_data()
+    # visualizer.plot_qs_model1_errors()
+    visualizer.visualize_contact_info()
     # visualizer.visualize_contact_factor__world()
     # visualizer.visualize_contact_factor__obj()
     # visualizer.plot_traj_contact_data()
@@ -67,23 +73,28 @@ def init_params_floatingblock():
     # sim params
     params = {}
     params['tstart'] = 0.0
-    params['tend'] = 2.0
+    params['tend'] = 6.0
     params['dt'] = 1e-2
+    params['gravity'] = 10
 
     # end effector, object geometries
-    params['ee_radius'] = 0.051
+    params['ee_radius'] = 0.04
     params['block_size_x'] = 0.15
-    params['block_size_y'] = 0.30
+    params['block_size_y'] = 0.40
     params['block_size_z'] = 0.15
+    params['block_mass'] = 0.5
 
     # initial end effector pose
     init_ee_pos_z = 0.5 * params['block_size_z']
-    params['init_ee_pos'] = [-0.3, 0, init_ee_pos_z]
+    params['init_ee_pos'] = [-0.3, -0.05, init_ee_pos_z]
     params['init_ee_ori'] = pb.getQuaternionFromEuler([0, 0, -np.pi])
 
     # initial object pose
     params['init_obj_pos'] = [0, 0.0, 1.0]
     params['init_obj_ori'] = pb.getQuaternionFromEuler([0, 0, 0])
+
+    # friction params
+    params['mu_g'] = 0.8
 
     return params
 
@@ -99,13 +110,14 @@ def planar_pushing_floatingblock():
         
     logger = env.get_logger()
     visualizer = Visualizer(params, logger)
-    visualizer.plot_force_data()
-    visualizer.visualize_contact_info()
+    # visualizer.plot_force_data()
+    # visualizer.visualize_contact_info()
+    visualizer.plot_qs_model1_errors()
 
 def main():
     # planar_pushing_kukablock()
     planar_pushing_floatingblock()
-    
+
 
 if __name__ == "__main__":
     main()

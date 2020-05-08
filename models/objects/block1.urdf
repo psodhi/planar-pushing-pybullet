@@ -2,12 +2,12 @@
 <robot name="block1">
   <link name="block1_base_link">
     <contact>
-      <lateral_friction value="2.0"/>
+      <lateral_friction value="0.8"/>
       <spinning_friction value=".00"/>
     </contact>
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="0.2"/>
+      <mass value="0.5"/>
       <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
     </inertial>
     <visual>
