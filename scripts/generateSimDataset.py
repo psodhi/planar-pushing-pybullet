@@ -113,6 +113,7 @@ def planar_pushing_floatingblock():
     # visualizer.plot_force_data()
     # visualizer.visualize_contact_info()
     visualizer.plot_qs_model1_errors()
+    # visualizer.plot_qs_model2_errors()
 
 def main():
     # planar_pushing_kukablock()
