@@ -446,7 +446,7 @@ class Visualizer():
     def cross2d(self, v1, v2):
         return v1[0]*v2[1] - v1[1]*v2[0]
 
-    def plot_qs_model1_errors(self):
+    def qs_model1(self, tstep, prev_step):
 
         tau_max = self.params['mu_g'] * np.sqrt(self.block_size_x**2 + self.block_size_y**2) * \
             self.params['block_mass'] * self.params['gravity']
@@ -454,102 +454,56 @@ class Visualizer():
             self.params['block_mass'] * self.params['gravity']
         c_sq = (tau_max / f_max) ** 2
 
-        step_skip = 1
-        init_skip = 50
-        step_range = range(init_skip, self.sim_length, step_skip)
-        nsteps = len(step_range)
-        error_vec = np.zeros((nsteps, 2))
-        twist_vec = np.zeros((nsteps, 3))
+        # obj, endeff poses at curr, prev time steps
+        ee_pose2d_prev__world = np.array([self.ee_pos[prev_step, :][0],
+                                            self.ee_pos[prev_step, :][1], self.ee_ori_rpy[prev_step, :][2]])
+        obj_pose2d_prev__world = np.array([self.obj_pos[prev_step, :][0],
+                                            self.obj_pos[prev_step, :][1], self.obj_ori_rpy[prev_step, :][2]])
+        obj_pose2d_curr__world = np.array(
+            [self.obj_pos[tstep, :][0], self.obj_pos[tstep, :][1], self.obj_ori_rpy[tstep, :][2]])
+        ee_pose2d_curr__world = np.array(
+            [self.ee_pos[tstep, :][0], self.ee_pos[tstep, :][1], self.ee_ori_rpy[tstep, :][2]])
 
-        idx = 0
-        for tstep in step_range:
+        # measurements at current time step
+        contact_point__world = self.contact_pos_onB[tstep, 0:2]
+        contact_normal__world = -self.contact_normal_onB[tstep, 0:2]
+        f_normal = self.contact_normal_force[tstep] * - \
+            self.contact_normal_onB[tstep, 0:2]
+        f_lateral = self.lateral_friction_onA[tstep] * - \
+            self.lateral_frictiondir_onA[tstep, 0:2]
+        contact_force__world = f_normal + f_lateral
 
-            if (self.contact_flag[tstep] == False):
-                continue
+        # transform measurement to object frame
+        frame_pose2d = np.array([[obj_pose2d_curr__world[0]], [obj_pose2d_curr__world[1]],
+                                    [obj_pose2d_curr__world[2]]])
+        contact_point__obj = self.transform_to_frame2d(
+            contact_point__world[:, None], obj_pose2d_curr__world[:, None])
+        contact_normal__obj = self.rotate_to_frame2d(
+            contact_normal__world[:, None], obj_pose2d_curr__world[:, None])
+        contact_force__obj = self.rotate_to_frame2d(
+            contact_force__world[:, None], obj_pose2d_curr__world[:, None])
 
-            # obj, endeff poses at curr, prev time steps
-            prev_step = np.maximum(0, tstep-step_skip)
-            ee_pose2d_prev__world = np.array([self.ee_pos[prev_step, :][0],
-                                              self.ee_pos[prev_step, :][1], self.ee_ori_rpy[prev_step, :][2]])
-            obj_pose2d_prev__world = np.array([self.obj_pos[prev_step, :][0],
-                                               self.obj_pos[prev_step, :][1], self.obj_ori_rpy[prev_step, :][2]])
-            obj_pose2d_curr__world = np.array(
-                [self.obj_pos[tstep, :][0], self.obj_pos[tstep, :][1], self.obj_ori_rpy[tstep, :][2]])
-            ee_pose2d_curr__world = np.array(
-                [self.ee_pos[tstep, :][0], self.ee_pos[tstep, :][1], self.ee_ori_rpy[tstep, :][2]])
+        # compute moment tau_z
+        tau_z = self.cross2d(contact_point__obj,
+                                contact_force__obj)  # r x f
 
-            # measurements at current time step
-            contact_point__world = self.contact_pos_onB[tstep, 0:2]
-            contact_normal__world = -self.contact_normal_onB[tstep, 0:2]
-            f_normal = self.contact_normal_force[tstep] * - \
-                self.contact_normal_onB[tstep, 0:2]
-            f_lateral = self.lateral_friction_onA[tstep] * - \
-                self.lateral_friction_onA[tstep]
-            contact_force__world = f_normal + f_lateral
+        # compute velocities
+        vel__obj =  self.rotate_to_frame2d(
+            obj_pose2d_curr__world[0:2] - obj_pose2d_prev__world[0:2], frame_pose2d)
+        omega = (obj_pose2d_curr__world[2] - obj_pose2d_prev__world[2])
+        omega = (omega + np.pi) % (2 * np.pi) - np.pi  # wrap2pi
 
-            # transform measurement to object frame
-            frame_pose2d = np.array([[obj_pose2d_curr__world[0]], [obj_pose2d_curr__world[1]],
-                                     [obj_pose2d_curr__world[2]]])
-            contact_point__obj = self.transform_to_frame2d(
-                contact_point__world[:, None], obj_pose2d_curr__world[:, None])
-            contact_normal__obj = self.rotate_to_frame2d(
-                contact_normal__world[:, None], obj_pose2d_curr__world[:, None])
-            contact_force__obj = self.rotate_to_frame2d(
-                contact_force__world[:, None], obj_pose2d_curr__world[:, None])
+        f_x = contact_force__obj[0]
+        f_y = contact_force__obj[1]
+        v_x = vel__obj[0]
+        v_y = vel__obj[1]
 
-            # compute moment tau_z
-            tau_z = self.cross2d(contact_point__obj,
-                                 contact_force__obj)  # r x f
+        error = [v_x * tau_z - c_sq * f_x * omega, v_y * tau_z - c_sq * f_y * omega]
+        twist = [v_x, v_y, omega]
 
-            # compute velocities
-            vel__obj =  self.rotate_to_frame2d(
-                obj_pose2d_curr__world[0:2] - obj_pose2d_prev__world[0:2], frame_pose2d)
-            omega = (obj_pose2d_curr__world[2] - obj_pose2d_prev__world[2])
-            omega = (omega + np.pi) % (2 * np.pi) - np.pi  # wrap2pi
+        return (error, twist)
 
-            f_x = contact_force__obj[0]
-            f_y = contact_force__obj[1]
-            v_x = vel__obj[0]
-            v_y = vel__obj[1]
-
-            error_vec[idx, :] = [v_x * tau_z - c_sq *
-                                    f_x * omega, v_y * tau_z - c_sq * f_y * omega]
-            twist_vec[idx, :] = [v_x, v_y, omega]
-
-            idx = idx + 1
-
-        fig = plt.figure(constrained_layout=True, figsize=(16, 12))
-        nrows = 2
-        ncols = 1
-        gs = GridSpec(nrows, ncols, figure=fig)
-        ax = [None] * (nrows*ncols)
-
-        ax[0] = fig.add_subplot(gs[0, 0])
-        ax[1] = fig.add_subplot(gs[1, 0])
-
-        # pdb.set_trace()
-        error_vec = np.sqrt(error_vec[:, 0]**2 + error_vec[:, 1]**2)
-        ax[0].plot(self.tspan[step_range], error_vec, linewidth=2, label='error')
-
-        ax[1].plot(self.tspan[step_range], twist_vec[:, 0],
-                   color='red', linewidth=2, label='v_x')
-        ax[1].plot(self.tspan[step_range], twist_vec[:, 1],
-                   color='green', linewidth=2, label='v_y')
-        ax[1].plot(self.tspan[step_range], twist_vec[:, 2],
-                   color='blue', linewidth=2, label='$\omega$')
-
-        ax[0].set_title('qs factor errors')
-        # ax[0].set_ylim((-0.001, 0.02))
-        ax[0].set_xlabel('time (s)')
-
-        ax[1].legend(loc='upper left')
-        ax[1].set_title('object velocity')
-        ax[1].set_xlabel('time (s)')
-
-        plt.show()
-
-    def plot_qs_model2_errors(self):
-
+    def qs_model2(self, tstep, prev_step):
         tau_max = self.params['mu_g'] * np.sqrt(self.block_size_x**2 + self.block_size_y**2) * \
             self.params['block_mass'] * self.params['gravity']
         f_max = self.params['mu_g'] * \
@@ -559,107 +513,129 @@ class Visualizer():
         A = np.diag([(1/f_max)**2, (1/f_max)**2, (1/tau_max)**2])
         Ainv = np.diag([f_max**2, f_max**2, tau_max**2])
 
+        # obj, endeff poses at prev, curr time steps
+        ee_pose2d_prev__world = np.array([self.ee_pos[prev_step, :][0],
+                                            self.ee_pos[prev_step, :][1], self.ee_ori_rpy[prev_step, :][2]])
+        obj_pose2d_prev__world = np.array([self.obj_pos[prev_step, :][0],
+                                            self.obj_pos[prev_step, :][1], self.obj_ori_rpy[prev_step, :][2]])
+        obj_pose2d_curr__world = np.array(
+            [self.obj_pos[tstep, :][0], self.obj_pos[tstep, :][1], self.obj_ori_rpy[tstep, :][2]])
+        ee_pose2d_curr__world = np.array(
+            [self.ee_pos[tstep, :][0], self.ee_pos[tstep, :][1], self.ee_ori_rpy[tstep, :][2]])
+
+        # measurements at current time step
+        contact_point__world = self.contact_pos_onB[tstep, 0:2]
+        contact_normal__world = -self.contact_normal_onB[tstep, 0:2]
+        f_normal = self.contact_normal_force[tstep] * - \
+            self.contact_normal_onB[tstep, 0:2]
+        f_lateral = self.lateral_friction_onA[tstep] * - \
+            self.lateral_frictiondir_onA[tstep, 0:2]
+        contact_force__world = f_normal + f_lateral
+
+        # transform measurement to object frame
+        frame_pose2d = np.array([[obj_pose2d_curr__world[0]], [obj_pose2d_curr__world[1]],
+                                    [obj_pose2d_curr__world[2]]])
+        contact_point__obj = self.transform_to_frame2d(
+            contact_point__world[:, None], obj_pose2d_curr__world[:, None])
+        contact_normal__obj = self.rotate_to_frame2d(
+            contact_normal__world[:, None], obj_pose2d_curr__world[:, None])
+        contact_force__obj = self.rotate_to_frame2d(
+            contact_force__world[:, None], obj_pose2d_curr__world[:, None])
+
+        # compute moment tau_z
+        tau_z = self.cross2d(contact_point__obj,
+                                contact_force__obj)[0]  # r x f
+
+        # compute velocities
+        vel__obj = self.rotate_to_frame2d(
+                obj_pose2d_curr__world[0:2] - obj_pose2d_prev__world[0:2], frame_pose2d)
+        omega = (obj_pose2d_curr__world[2] - obj_pose2d_prev__world[2])
+        omega = (omega + np.pi) % (2 * np.pi) - np.pi  # wrap2pi
+
+        f_x = contact_force__obj[0, 0]
+        f_y = contact_force__obj[1, 0]
+        v_x = vel__obj[0]
+        v_y = vel__obj[1]
+        p_x = contact_point__obj[0, 0]
+        p_y = contact_point__obj[1, 0]
+        t = np.array([[-p_y], [p_x], [-1]])
+
+        # ref: Zhou '17
+        Jp = np.array([[1, 0, -p_y], [0, 1, p_x]])  # 2x3
+        F = np.array([[f_x], [f_y], [tau_z]])
+        D = (np.hstack((Jp.transpose(), np.matmul(Ainv, t)))).transpose()  # 3x3
+        Vp = np.array([[v_x - omega*p_y], [v_y + omega*p_x], [0]])
+        V = np.matmul(A, F)
+
+        error = (np.matmul(D, V) - Vp).transpose()
+        twist = [v_x, v_y, omega]
+
+        return (error, twist)
+
+    def plot_qs_push_dynamics_errors(self):
+
         step_skip = 1
-        init_skip = 50
+        init_skip = 100 # initial impulse iterations
         step_range = range(init_skip, self.sim_length, step_skip)
         nsteps = len(step_range)
-        error_vec = np.zeros((nsteps, 3))
-        twist_vec = np.zeros((nsteps, 3))
+
+        error_vec1 = np.zeros((nsteps, 2))
+        twist_vec1 = np.zeros((nsteps, 3))
+        error_vec2 = np.zeros((nsteps, 3))
+        twist_vec2 = np.zeros((nsteps, 3))
 
         idx = 0
         for tstep in step_range:
 
             if (self.contact_flag[tstep] == False):
                 continue
-
-            # obj, endeff poses at prev, curr time steps
+            
             prev_step = np.maximum(0, tstep-step_skip)
-            ee_pose2d_prev__world = np.array([self.ee_pos[prev_step, :][0],
-                                              self.ee_pos[prev_step, :][1], self.ee_ori_rpy[prev_step, :][2]])
-            obj_pose2d_prev__world = np.array([self.obj_pos[prev_step, :][0],
-                                               self.obj_pos[prev_step, :][1], self.obj_ori_rpy[prev_step, :][2]])
-            obj_pose2d_curr__world = np.array(
-                [self.obj_pos[tstep, :][0], self.obj_pos[tstep, :][1], self.obj_ori_rpy[tstep, :][2]])
-            ee_pose2d_curr__world = np.array(
-                [self.ee_pos[tstep, :][0], self.ee_pos[tstep, :][1], self.ee_ori_rpy[tstep, :][2]])
 
-            # measurements at current time step
-            contact_point__world = self.contact_pos_onB[tstep, 0:2]
-            contact_normal__world = -self.contact_normal_onB[tstep, 0:2]
-            f_normal = self.contact_normal_force[tstep] * - \
-                self.contact_normal_onB[tstep, 0:2]
-            f_lateral = self.lateral_friction_onA[tstep] * - \
-                self.lateral_friction_onA[tstep]
-            contact_force__world = f_normal + f_lateral
+            [error1, twist1] = self.qs_model1(tstep, prev_step)
+            [error2, twist2] = self.qs_model2(tstep, prev_step)
 
-            # transform measurement to object frame
-            frame_pose2d = np.array([[obj_pose2d_curr__world[0]], [obj_pose2d_curr__world[1]],
-                                     [obj_pose2d_curr__world[2]]])
-            contact_point__obj = self.transform_to_frame2d(
-                contact_point__world[:, None], obj_pose2d_curr__world[:, None])
-            contact_normal__obj = self.rotate_to_frame2d(
-                contact_normal__world[:, None], obj_pose2d_curr__world[:, None])
-            contact_force__obj = self.rotate_to_frame2d(
-                contact_force__world[:, None], obj_pose2d_curr__world[:, None])
+            error_vec1[idx, :] = error1
+            twist_vec1[idx, :] = twist1
 
-            # compute moment tau_z
-            tau_z = self.cross2d(contact_point__obj,
-                                 contact_force__obj)[0]  # r x f
-
-            # compute velocities
-            vel__obj = self.rotate_to_frame2d(
-                 obj_pose2d_curr__world[0:2] - obj_pose2d_prev__world[0:2], frame_pose2d)
-            omega = (obj_pose2d_curr__world[2] - obj_pose2d_prev__world[2])
-            omega = (omega + np.pi) % (2 * np.pi) - np.pi  # wrap2pi
-
-            f_x = contact_force__obj[0, 0]
-            f_y = contact_force__obj[1, 0]
-            v_x = vel__obj[0]
-            v_y = vel__obj[1]
-            p_x = contact_point__obj[0, 0]
-            p_y = contact_point__obj[1, 0]
-            t = np.array([[-p_y], [p_x], [-1]])
-
-            # ref: Zhou '17
-            Jp = np.array([[1, 0, -p_y], [0, 1, p_x]])  # 2x3
-            F = np.array([[f_x], [f_y], [tau_z]])
-            D = (np.hstack((Jp.transpose(), np.matmul(Ainv, t)))).transpose()  # 3x3
-            Vp = np.array([[v_x - omega*p_y], [v_y + omega*p_x], [0]])
-            V = np.matmul(A, F)
-
-            error_vec[idx, :] = (np.matmul(D, V) - Vp).transpose()
-            twist_vec[idx, :] = [v_x, v_y, omega]
+            error_vec2[idx, :] = error2
+            twist_vec2[idx, :] = twist2
 
             idx = idx + 1
 
-        fig = plt.figure(constrained_layout=True, figsize=(16, 12))
-        nrows = 2
+        fig = plt.figure(constrained_layout=True)
+        nrows = 3
         ncols = 1
         gs = GridSpec(nrows, ncols, figure=fig)
         ax = [None] * (nrows*ncols)
 
         ax[0] = fig.add_subplot(gs[0, 0])
         ax[1] = fig.add_subplot(gs[1, 0])
+        ax[2] = fig.add_subplot(gs[2, 0])
 
-        # pdb.set_trace()
-        error_vec = np.sqrt(error_vec[:, 0]**2 +
-                            error_vec[:, 1]**2 + error_vec[:, 2]**2)
-        ax[0].plot(self.tspan[step_range], error_vec, linewidth=2, label='error')
-
-        ax[1].plot(self.tspan[step_range], twist_vec[:, 0],
+        ax[0].plot(self.tspan[step_range], twist_vec1[:, 0],
                    color='red', linewidth=2, label='v_x')
-        ax[1].plot(self.tspan[step_range], twist_vec[:, 1],
+        ax[0].plot(self.tspan[step_range], twist_vec1[:, 1],
                    color='green', linewidth=2, label='v_y')
-        ax[1].plot(self.tspan[step_range], twist_vec[:, 2],
+        ax[0].plot(self.tspan[step_range], twist_vec1[:, 2],
                    color='blue', linewidth=2, label='$\omega$')
 
-        ax[0].set_title('qs factor errors')
-        # ax[0].set_ylim((-0.001, 0.02))
-        ax[0].set_xlabel('time (s)')
+        error_vec1 = np.sqrt(error_vec1[:, 0]**2 + error_vec1[:, 1]**2)
+        ax[1].plot(self.tspan[step_range], error_vec1, linewidth=2, label='error')
 
-        ax[1].legend(loc='upper left')
-        ax[1].set_title('object velocity')
+        error_vec2 = np.sqrt(error_vec2[:, 0]**2 +
+                            error_vec2[:, 1]**2 + error_vec2[:, 2]**2)
+        ax[2].plot(self.tspan[step_range], error_vec2, linewidth=2, label='error')
+
+        ax[0].legend(loc='upper left')
+        
+        ax[0].set_xlabel('time (s)')
         ax[1].set_xlabel('time (s)')
+        ax[2].set_xlabel('time (s)')
+
+        ax[0].set_title('object velocity')
+        ax[1].set_title('qs factor 1 errors')
+        ax[2].set_title('qs factor 2 errors')
 
         plt.show()
 

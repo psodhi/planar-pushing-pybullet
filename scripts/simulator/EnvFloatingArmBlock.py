@@ -75,7 +75,7 @@ class EnvFloatingArmBlock():
         self.record_log_video = False
         if (self.record_log_video):
             self.log_id = pb.startStateLogging(
-                pb.STATE_LOGGING_VIDEO_MP4, "../local/outputs/push_block_kuka.mp4")
+                pb.STATE_LOGGING_VIDEO_MP4, "../local/outputs/push_block_floating.mp4")
 
     def set_gui_params(self):
         cam_tgt_pos = [-0.17, 0.52, 0.53]
@@ -192,7 +192,7 @@ class EnvFloatingArmBlock():
         obj_yaw = pb.getEulerFromQuaternion(obj_ori)[2]
         ee_yaw = pb.getEulerFromQuaternion(ee_ori)[2]
 
-        vel = [3, 0, 0]  # vx, vy, omega
+        vel = [20, 0, 0]  # vx, vy, omega
         
         # transform ee_pos from world to object frame
         ee_pos__world = np.array([[ee_pos[0]], [ee_pos[1]]])

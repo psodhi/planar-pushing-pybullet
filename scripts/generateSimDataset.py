@@ -57,7 +57,7 @@ def planar_pushing_kukablock():
         # env.simulate_reinitialize(traj_vec)
 
     logger = env.get_logger()
-    dataset_name = "logCircle1"
+    dataset_name = "logKBCircle1"
     logger.save_data2d_json("../local/data/{0}.json".format(dataset_name))
 
     visualizer = Visualizer(params, logger)
@@ -73,8 +73,8 @@ def init_params_floatingblock():
     # sim params
     params = {}
     params['tstart'] = 0.0
-    params['tend'] = 6.0
-    params['dt'] = 1e-2
+    params['tend'] = 1.0
+    params['dt'] = 1e-3
     params['gravity'] = 10
 
     # end effector, object geometries
@@ -99,21 +99,30 @@ def init_params_floatingblock():
     return params
 
 def planar_pushing_floatingblock():
-    vis_flag = True
 
     params = init_params_floatingblock()
-    env = EnvFloatingArmBlock(params, vis_flag)
-    traj = Trajectories(params)
 
-    traj_vec = traj.get_traj_circle()
-    env.simulate()
-        
-    logger = env.get_logger()
+    first_run = True
+    init_ee_y = [-0.052, -0.047, -0.04, 0, 0.04, 0.047, 0.052]
+    num_runs = len(init_ee_y)
+    for run_idx in range(0, num_runs):
+        params['init_ee_pos'][1] = init_ee_y[run_idx]
+        if (first_run):
+            env = EnvFloatingArmBlock(params, True)
+            env.simulate()
+            first_run = False
+        else:
+            env = EnvFloatingArmBlock(params, False)
+            env.simulate()
+
+        logger = env.get_logger()
+        dataset_name = "logFBTraj{0}".format(run_idx)
+        logger.save_data2d_json("../local/data/{0}.json".format(dataset_name))
+
     visualizer = Visualizer(params, logger)
     # visualizer.plot_force_data()
     # visualizer.visualize_contact_info()
-    visualizer.plot_qs_model1_errors()
-    # visualizer.plot_qs_model2_errors()
+    visualizer.plot_qs_push_dynamics_errors()
 
 def main():
     # planar_pushing_kukablock()

@@ -66,6 +66,13 @@ class Logger():
             # poly_vertices = poly_vertices.transpose()  # 2 x nv
 
         return poly_vertices
+    
+    def get_contact_force(self):
+        f_normal = self.contact_normal_force * -self.contact_normal_onB[:, 0:2]
+        f_lateral = self.lateral_friction_onA * -self.lateral_frictiondir_onA[:, 0:2]
+        contact_forces_2d = f_normal + f_lateral
+
+        return contact_forces_2d
 
     def save_data2d_json(self, dstfile):
 
@@ -77,6 +84,7 @@ class Logger():
         obj_poses_2d[:, 2] = self.obj_ori_rpy[:, 2]
 
         obj_poly_shape = self.get_shape_poly_vertices('rect')
+        contact_forces_2d = self.get_contact_force()
 
         #  use .tolist() to serialize np arrays
         data = {'params': self.params,
@@ -84,8 +92,11 @@ class Logger():
                 'ee_poses_2d': ee_poses_2d.tolist(),
                 'obj_poses_2d': obj_poses_2d.tolist(),
                 'contact_flag': self.contact_flag.tolist(),
-                'contact_normals_2d': (-self.contact_normal_onB[:, 0:2]).tolist(),
+                'contact_normal_dirs2d': (-self.contact_normal_onB[:, 0:2]).tolist(),
                 'contact_normal_forces': self.contact_normal_force.tolist(),
+                'contact_lateral_dirs2d': (-self.lateral_frictiondir_onA[:, 0:2]).tolist(),
+                'contact_lateral_forces': self.lateral_friction_onA.tolist(),
+                'contact_forces_2d': contact_forces_2d.tolist(),
                 'contact_points_gt_2d': (self.contact_pos_onB[:, 0:2]).tolist()}
 
         with open(dstfile, 'w') as outfile:
