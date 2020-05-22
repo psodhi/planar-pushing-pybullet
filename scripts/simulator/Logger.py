@@ -51,30 +51,43 @@ class Logger():
         self.contact_normal_force = np.zeros((self.sim_length, 1))
 
         # contact friction measurements
-        self.lateral_friction_onA = np.zeros((self.sim_length, 1))
-        self.lateral_frictiondir_onA = np.zeros((self.sim_length, 3))
-        self.lateral_friction_onB = np.zeros((self.sim_length, 1))
-        self.lateral_frictiondir_onB = np.zeros((self.sim_length, 3))
+        self.lateral_friction1 = np.zeros((self.sim_length, 1))
+        self.lateral_frictiondir1 = np.zeros((self.sim_length, 3))
+        self.lateral_friction2 = np.zeros((self.sim_length, 1))
+        self.lateral_frictiondir2 = np.zeros((self.sim_length, 3))
 
     def get_shape_poly_vertices(self, shape_id):
 
-        if (shape_id == 'rect'):
+        if (shape_id == "rect"):
             poly_vertices = np.array([[-0.5*self.block_size_x, -0.5*self.block_size_y],
-                                      [-0.5*self.block_size_x, 0.5*self.block_size_y],
-                                      [0.5*self.block_size_x, 0.5*self.block_size_y],
+                                      [-0.5*self.block_size_x,
+                                          0.5*self.block_size_y],
+                                      [0.5*self.block_size_x,
+                                          0.5*self.block_size_y],
                                       [0.5*self.block_size_x, -0.5*self.block_size_y]])
             # poly_vertices = poly_vertices.transpose()  # 2 x nv
 
         return poly_vertices
-    
+
     def get_contact_force(self):
+
+        # contact forces (applied by endeff on object)
         f_normal = self.contact_normal_force * -self.contact_normal_onB[:, 0:2]
-        f_lateral = self.lateral_friction_onA * -self.lateral_frictiondir_onA[:, 0:2]
+        f_lateral = self.lateral_friction1 * - \
+            self.lateral_frictiondir1[:, 0:2]
         contact_forces_2d = f_normal + f_lateral
 
         return contact_forces_2d
 
+    def update_logged_params(self):
+        self.params['tau_max'] = self.params['mu_g'] * np.sqrt(self.block_size_x**2 + self.block_size_y**2) * \
+            self.params['block_mass'] * self.params['gravity']
+        self.params['f_max'] = self.params['mu_g'] * \
+            self.params['block_mass'] * self.params['gravity']
+
     def save_data2d_json(self, dstfile):
+
+        self.update_logged_params()
 
         ee_poses_2d = np.zeros((self.sim_length, 3))
         obj_poses_2d = np.zeros((self.sim_length, 3))
@@ -94,8 +107,8 @@ class Logger():
                 'contact_flag': self.contact_flag.tolist(),
                 'contact_normal_dirs2d': (-self.contact_normal_onB[:, 0:2]).tolist(),
                 'contact_normal_forces': self.contact_normal_force.tolist(),
-                'contact_lateral_dirs2d': (-self.lateral_frictiondir_onA[:, 0:2]).tolist(),
-                'contact_lateral_forces': self.lateral_friction_onA.tolist(),
+                'contact_lateral_dirs2d': (-self.lateral_frictiondir1[:, 0:2]).tolist(),
+                'contact_lateral_forces': self.lateral_friction1.tolist(),
                 'contact_forces_2d': contact_forces_2d.tolist(),
                 'contact_points_gt_2d': (self.contact_pos_onB[:, 0:2]).tolist()}
 

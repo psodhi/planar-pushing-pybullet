@@ -1,4 +1,5 @@
 from .Logger import Logger
+import utils as utils
 
 import pybullet as pb
 import pybullet_data
@@ -14,7 +15,11 @@ from matplotlib.patches import Rectangle, Circle
 
 import pdb
 
+
 class EnvKukaArmBlock():
+    """
+    A class to create a pybullet environment of a block being pushed by a fixed kuka arm.
+    """
 
     def __init__(self, params, vis_flag=True):
 
@@ -62,7 +67,6 @@ class EnvKukaArmBlock():
         pb.setGravity(0, 0, -10)
 
         # set/get arm params
-        # pdb.set_trace()
         self.kuka_ee_idx = 7
         self.num_joints = pb.getNumJoints(self.kuka_id)
         self.joint_ids = [i for i in range(self.num_joints)]
@@ -82,14 +86,27 @@ class EnvKukaArmBlock():
                 pb.STATE_LOGGING_VIDEO_MP4, "../local/outputs/push_block_kuka.mp4")
 
     def set_gui_params(self):
+
+        enable_preview = False
+        pb.configureDebugVisualizer(
+            pb.COV_ENABLE_RGB_BUFFER_PREVIEW, enable_preview)
+        pb.configureDebugVisualizer(
+            pb.COV_ENABLE_DEPTH_BUFFER_PREVIEW, enable_preview)
+        pb.configureDebugVisualizer(
+            pb.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, enable_preview)
+        pb.configureDebugVisualizer(pb.COV_ENABLE_GUI, enable_preview)
+
         cam_tgt_pos = [-0.5, 0.32, -0.15]
         cam_dist = 1
-        cam_yaw = 270
-        cam_pitch = -16
+        cam_yaw = 229
+        cam_pitch = -36
+
         pb.resetDebugVisualizerCamera(
             cam_dist, cam_yaw, cam_pitch, cam_tgt_pos)
 
     def verify_object_shape(self):
+        """" verify object properties in urdf match those in passed params """
+
         visual_data = pb.getVisualShapeData(self.obj_id, -1)
         collision_data = pb.getCollisionShapeData(self.obj_id, -1)
 
@@ -108,7 +125,7 @@ class EnvKukaArmBlock():
 
     def log_step(self, tstep):
 
-         # get contact, link, obj information (A: self.kuka_id, B: self.obj_id)
+        # get contact, link, obj information (A: self.kuka_id, B: self.obj_id)
         contact_info = pb.getContactPoints(self.kuka_id, self.obj_id)
         link_state = pb.getLinkState(self.kuka_id, self.kuka_ee_idx)
         obj_pose = pb.getBasePositionAndOrientation(self.obj_id)
@@ -138,11 +155,11 @@ class EnvKukaArmBlock():
             self.logger.contact_distance[tstep, :] = contact_info[0][8]
             self.logger.contact_normal_force[tstep, :] = contact_info[0][9]
 
-            self.logger.lateral_friction_onA[tstep, :] = contact_info[0][10]
-            self.logger.lateral_frictiondir_onA[tstep, :] = contact_info[0][11]
-            self.logger.lateral_friction_onB[tstep, :] = contact_info[0][12]
-            self.logger.lateral_frictiondir_onB[tstep, :] = contact_info[0][13]
-    
+            self.logger.lateral_friction1[tstep, :] = contact_info[0][10]
+            self.logger.lateral_frictiondir1[tstep, :] = contact_info[0][11]
+            self.logger.lateral_friction2[tstep, :] = contact_info[0][12]
+            self.logger.lateral_frictiondir2[tstep, :] = contact_info[0][13]
+
     def reset_sim(self):
 
         # reset joint states to nominal pose (overrides physics simulation)
@@ -157,8 +174,35 @@ class EnvKukaArmBlock():
         for i in range(1):
             pb.stepSimulation()
 
+    def simulate(self, traj_vec):
+        self.reset_sim()
+        for i in range(1000):
+            pb.stepSimulation()
+
+        for tstep in range(0, self.sim_length):
+
+            pos_ee = [traj_vec[tstep, 0],
+                      traj_vec[tstep, 1], traj_vec[tstep, 2]]
+
+            # inverse kinematics
+            joint_poses = pb.calculateInverseKinematics(
+                self.kuka_id, self.kuka_ee_idx, pos_ee, self.init_ee_ori, jointDamping=self.jd)
+
+            # motor control to follow IK solution
+            for i in range(0, self.num_joints):
+                pb.setJointMotorControl2(bodyIndex=self.kuka_id, jointIndex=i, controlMode=pb.POSITION_CONTROL,
+                                         targetPosition=joint_poses[i], targetVelocity=0, force=500, positionGain=0.3, velocityGain=1)
+
+            self.step_sim()
+
+            self.log_step(tstep)
+            # time.sleep(1. / 240.)
+
+        if (self.record_log_video):
+            pb.stopStateLogging(self.log_id)
+
     def simulate_reinitialize(self, traj_vec):
-        """" Sticky contacts test: Re-initialize simulation with states from previous time step """
+        """" sticky contacts test: re-initialize simulation with states from previous time step """
 
         self.reset_sim()
         reinit_obj_state = True
@@ -190,32 +234,6 @@ class EnvKukaArmBlock():
 
             self.step_sim()
 
-            self.log_step(tstep)
-            # time.sleep(1. / 240.)
-
-        if (self.record_log_video):
-            pb.stopStateLogging(self.log_id)
-
-    def simulate(self, traj_vec):
-        self.reset_sim()
-        for i in range(1000):
-            pb.stepSimulation()
-
-        for tstep in range(0, self.sim_length):
-
-            pos_ee = [traj_vec[tstep, 0],
-                      traj_vec[tstep, 1], traj_vec[tstep, 2]]
-
-            # inverse kinematics
-            joint_poses = pb.calculateInverseKinematics(
-                self.kuka_id, self.kuka_ee_idx, pos_ee, self.init_ee_ori, jointDamping=self.jd)
-
-            # motor control to follow IK solution
-            for i in range(0, self.num_joints):
-                pb.setJointMotorControl2(bodyIndex=self.kuka_id, jointIndex=i, controlMode=pb.POSITION_CONTROL,
-                                         targetPosition=joint_poses[i], targetVelocity=0, force=500, positionGain=0.3, velocityGain=1)
-
-            pb.stepSimulation()
             self.log_step(tstep)
             # time.sleep(1. / 240.)
 

@@ -1,4 +1,5 @@
 from .Logger import Logger
+import utils as utils
 
 import pybullet as pb
 import pybullet_data
@@ -16,6 +17,9 @@ import pdb
 
 
 class EnvFloatingArmBlock():
+    """
+    A class to create a pybullet environment of a block being pushed by a floating arm/gripper.
+    """
 
     def __init__(self, params, vis_flag=True):
 
@@ -24,7 +28,7 @@ class EnvFloatingArmBlock():
             self.set_gui_params()
         else:
             pb.connect(pb.DIRECT)
-        
+
         self.debug = True
 
         # read in sim params
@@ -57,7 +61,6 @@ class EnvFloatingArmBlock():
 
         self.arm_ee_idx = 0
         self.num_joints = pb.getNumJoints(self.arm_id)
-        # self.joint_ids = [i for i in range(self.num_joints)]
 
         self.constraint_id = pb.createConstraint(
             self.arm_id, 0, -1, -1, pb.JOINT_FIXED, [0, 0, 0], [0, 0, 0], [0, 0, 1])
@@ -75,17 +78,33 @@ class EnvFloatingArmBlock():
         self.record_log_video = False
         if (self.record_log_video):
             self.log_id = pb.startStateLogging(
-                pb.STATE_LOGGING_VIDEO_MP4, "../local/outputs/push_block_floating.mp4")
+                pb.STATE_LOGGING_VIDEO_MP4, "../local/outputs/push_floating_block.mp4")
+
+    def get_logger(self):
+        return self.logger
 
     def set_gui_params(self):
+
+        enable_preview = False
+        pb.configureDebugVisualizer(
+            pb.COV_ENABLE_RGB_BUFFER_PREVIEW, enable_preview)
+        pb.configureDebugVisualizer(
+            pb.COV_ENABLE_DEPTH_BUFFER_PREVIEW, enable_preview)
+        pb.configureDebugVisualizer(
+            pb.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, enable_preview)
+        pb.configureDebugVisualizer(pb.COV_ENABLE_GUI, enable_preview)
+
         cam_tgt_pos = [-0.17, 0.52, 0.53]
         cam_dist = 2
         cam_yaw = 270
         cam_pitch = -80
+
         pb.resetDebugVisualizerCamera(
             cam_dist, cam_yaw, cam_pitch, cam_tgt_pos)
 
     def verify_object_shape(self):
+        """" Verify object properties in urdf match those in passed params """
+
         visual_data = pb.getVisualShapeData(self.obj_id, -1)
         collision_data = pb.getCollisionShapeData(self.obj_id, -1)
 
@@ -99,12 +118,9 @@ class EnvFloatingArmBlock():
         assert (self.params['block_size_z'] == visual_dims[2]
                 == collision_dims[2]), "object z-dim mismatch."
 
-    def get_logger(self):
-        return self.logger
-
     def log_step(self, tstep):
 
-         # get contact, link, obj information (A: self.arm_id, B: self.obj_id)
+         # get contact, endeff, obj information (A: self.arm_id, B: self.obj_id)
         contact_info = pb.getContactPoints(self.arm_id, self.obj_id)
         link_state = pb.getLinkState(self.arm_id, self.arm_ee_idx)
         obj_pose = pb.getBasePositionAndOrientation(self.obj_id)
@@ -134,11 +150,11 @@ class EnvFloatingArmBlock():
             self.logger.contact_distance[tstep, :] = contact_info[0][8]
             self.logger.contact_normal_force[tstep, :] = contact_info[0][9]
 
-            self.logger.lateral_friction_onA[tstep, :] = contact_info[0][10]
-            self.logger.lateral_frictiondir_onA[tstep, :] = contact_info[0][11]
-            self.logger.lateral_friction_onB[tstep, :] = contact_info[0][12]
-            self.logger.lateral_frictiondir_onB[tstep, :] = contact_info[0][13]
-    
+            self.logger.lateral_friction1[tstep, :] = contact_info[0][10]
+            self.logger.lateral_frictiondir1[tstep, :] = contact_info[0][11]
+            self.logger.lateral_friction2[tstep, :] = contact_info[0][12]
+            self.logger.lateral_frictiondir2[tstep, :] = contact_info[0][13]
+
     def reset_sim(self):
 
         # reset arm state
@@ -161,29 +177,16 @@ class EnvFloatingArmBlock():
         ee_pos_prev = self.logger.ee_pos[tstep-1, :]
         ee_pos_curr = self.logger.ee_pos[tstep, :]
 
-        line_ee = pb.addUserDebugLine(ee_pos_prev, ee_pos_curr, lineColorRGB=(0,1,0), lineWidth=2)
-        line_obj = pb.addUserDebugLine(obj_pos_prev, obj_pos_curr, lineColorRGB=(1,0,0), lineWidth=3)
+        line_ee = pb.addUserDebugLine(
+            ee_pos_prev, ee_pos_curr, lineColorRGB=(0, 1, 0), lineWidth=2)
+        line_obj = pb.addUserDebugLine(
+            obj_pos_prev, obj_pos_curr, lineColorRGB=(1, 0, 0), lineWidth=3)
 
         return (line_ee, line_obj)
 
-    def transform_to_frame2d(self, pt, frame_pose2d):
-        yaw = frame_pose2d[2, 0]
-        R = np.array([[np.cos(yaw), np.sin(yaw)], [-np.sin(yaw), np.cos(yaw)]])
-        t = -frame_pose2d[0:2]
-        pt_tf = np.matmul(R, pt+t)
-
-        return pt_tf
-
-    def transform_from_frame2d(self, pt, frame_pose2d):
-        yaw = frame_pose2d[2, 0]
-        R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
-        t = frame_pose2d[0:2]
-        pt_tf = np.matmul(R, pt)
-        pt_tf = t + pt_tf
-        
-        return pt_tf
-
     def push_const_vel__object(self):
+        """" Constant velocity pushing in object frame """
+
         obj_pos, obj_ori = pb.getBasePositionAndOrientation(self.obj_id)
         link_state = pb.getLinkState(self.arm_id, self.arm_ee_idx)
         ee_pos = link_state[0]
@@ -192,53 +195,34 @@ class EnvFloatingArmBlock():
         obj_yaw = pb.getEulerFromQuaternion(obj_ori)[2]
         ee_yaw = pb.getEulerFromQuaternion(ee_ori)[2]
 
-        vel = [20, 0, 0]  # vx, vy, omega
-        
+        vel = [8, 0, 0]  # vx, vy, omega
+
         # transform ee_pos from world to object frame
         ee_pos__world = np.array([[ee_pos[0]], [ee_pos[1]]])
         frame_pose2d = np.array([[obj_pos[0]], [obj_pos[1]], [obj_yaw]])
-        ee_pos__object = self.transform_to_frame2d(ee_pos__world, frame_pose2d)
+        ee_pos__object = utils.transform_to_frame2d(
+            ee_pos__world, frame_pose2d)
 
         # Calculate new arm endeff position
-        ee_new_pos__object = np.array([ee_pos__object[0] + self.dt * vel[0], ee_pos__object[1] + self.dt * vel[1]])
-        ee_new_pos__world = self.transform_from_frame2d(ee_new_pos__object, frame_pose2d)
+        ee_new_pos__object = np.array(
+            [ee_pos__object[0] + self.dt * vel[0], ee_pos__object[1] + self.dt * vel[1]])
+        ee_new_pos__world = utils.transform_from_frame2d(
+            ee_new_pos__object, frame_pose2d)
         ee_new_z = 0.5 * self.params['block_size_z']
 
         # Calculate new arm endeff orientation
         ee_init_yaw = pb.getEulerFromQuaternion(self.init_ee_ori)[2]
-        ee_new_yaw = ee_init_yaw + obj_yaw 
+        ee_new_yaw = ee_init_yaw + obj_yaw
         # ee_new_yaw = ee_yaw + self.dt * vel[2]
 
-        ee_new_pos = [ee_new_pos__world[0,0], ee_new_pos__world[1,0], ee_new_z]
-        ee_new_ori = [0, 0, ee_new_yaw]
-        return (ee_new_pos, ee_new_ori)
-
-    def push_const_vel__world(self):
-        obj_pos, obj_ori = pb.getBasePositionAndOrientation(self.obj_id)
-        link_state = pb.getLinkState(self.arm_id, self.arm_ee_idx)
-        ee_pos = link_state[0]
-        ee_ori = link_state[1]
-
-        obj_yaw = pb.getEulerFromQuaternion(obj_ori)[2]
-        ee_yaw = pb.getEulerFromQuaternion(ee_ori)[2]
-
-        vel = [4, 0, 0]  # vx, vy, omega
-
-        # Calculate new arm endeff position
-        ee_new_x = ee_pos[0] + self.dt * vel[0]
-        ee_new_y = ee_pos[1] + self.dt * vel[1]
-        ee_new_z = 0.5 * self.params['block_size_z']
-
-        # Calculate new arm endeff orientation
-        ee_init_yaw = pb.getEulerFromQuaternion(self.init_ee_ori)[2]
-        ee_new_yaw = ee_init_yaw + obj_yaw 
-        # ee_new_yaw = ee_yaw + self.dt * vel[2]
-        
-        ee_new_pos = [ee_new_x, ee_new_y, ee_new_z]
+        ee_new_pos = [ee_new_pos__world[0, 0],
+                      ee_new_pos__world[1, 0], ee_new_z]
         ee_new_ori = [0, 0, ee_new_yaw]
         return (ee_new_pos, ee_new_ori)
 
     def push_obj_dir(self):
+        """" Push along object direction """
+
         obj_pos, obj_ori = pb.getBasePositionAndOrientation(self.obj_id)
         link_state = pb.getLinkState(self.arm_id, self.arm_ee_idx)
         ee_pos = link_state[0]
@@ -276,7 +260,7 @@ class EnvFloatingArmBlock():
 
             # print("Simulation time step: {0}".format(tstep))
 
-            ee_new_pos, ee_new_ori  = self.push_const_vel__object()
+            ee_new_pos, ee_new_ori = self.push_const_vel__object()
             # ee_new_pos, ee_new_ori = self.push_obj_dir()
 
             # Move arm to new position/orientation
