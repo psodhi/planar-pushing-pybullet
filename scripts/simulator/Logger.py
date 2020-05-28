@@ -73,8 +73,7 @@ class Logger():
 
         # contact forces (applied by endeff on object)
         f_normal = self.contact_normal_force * -self.contact_normal_onB[:, 0:2]
-        f_lateral = self.lateral_friction1 * - \
-            self.lateral_frictiondir1[:, 0:2]
+        f_lateral = self.lateral_friction1 * self.lateral_frictiondir1[:, 0:2]
         contact_forces_2d = f_normal + f_lateral
 
         return contact_forces_2d
@@ -107,7 +106,7 @@ class Logger():
                 'contact_flag': self.contact_flag.tolist(),
                 'contact_normal_dirs2d': (-self.contact_normal_onB[:, 0:2]).tolist(),
                 'contact_normal_forces': self.contact_normal_force.tolist(),
-                'contact_lateral_dirs2d': (-self.lateral_frictiondir1[:, 0:2]).tolist(),
+                'contact_lateral_dirs2d': (self.lateral_frictiondir1[:, 0:2]).tolist(),
                 'contact_lateral_forces': self.lateral_friction1.tolist(),
                 'contact_forces_2d': contact_forces_2d.tolist(),
                 'contact_points_gt_2d': (self.contact_pos_onB[:, 0:2]).tolist()}

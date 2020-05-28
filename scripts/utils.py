@@ -51,7 +51,7 @@ def cross2d(v1, v2):
     Cross-product between two 2D vectors
     :param v1: vector 1
     :param v2: vector 2
-    :return: point in object frame [2x1]
+    :return: v1 x v2
     """
 
     return v1[0]*v2[1] - v1[1]*v2[0]
