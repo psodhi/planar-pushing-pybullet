@@ -1,3 +1,12 @@
+"""
+Script to generate pushing datasets using pybullet simulator (in json format). 
+
+Simulation environments include EnvKukaArmBlock.py, EnvFloatingArmBlock.py
+Simulated trajectories in Trajectories.py (currently being used by EnvKukaArmBlock.py)
+Logged data in Logger.py
+Visualization of logged data (and factors) in Visualizer.py 
+"""
+
 from simulator.EnvKukaArmBlock import EnvKukaArmBlock
 from simulator.EnvFloatingArmBlock import EnvFloatingArmBlock
 from simulator.Trajectories import Trajectories
