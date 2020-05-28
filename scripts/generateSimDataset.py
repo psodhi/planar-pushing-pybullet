@@ -1,10 +1,12 @@
+#!/usr/bin/python
+
 """
 Script to generate pushing datasets using pybullet simulator (in json format). 
 
 Simulation environments include EnvKukaArmBlock.py, EnvFloatingArmBlock.py
 Simulated trajectories in Trajectories.py (currently being used by EnvKukaArmBlock.py)
 Logged data in Logger.py
-Visualization of logged data (and factors) in Visualizer.py 
+Visualization of logged data (and factor values) in Visualizer.py 
 """
 
 from simulator.EnvKukaArmBlock import EnvKukaArmBlock
@@ -15,11 +17,11 @@ from simulator.Visualizer import Visualizer
 
 import pybullet as pb
 import numpy as np
+import json
+import sys
+
 import matplotlib.pyplot as plt
 import pdb
-
-import json
-
 
 def init_params_kukablock():
 
@@ -51,11 +53,10 @@ def init_params_kukablock():
     return params
 
 
-def planar_pushing_kukablock():
-    vis_flag = True
+def planar_pushing_kukablock(gui_flag):
 
     params = init_params_kukablock()
-    env = EnvKukaArmBlock(params, vis_flag)
+    env = EnvKukaArmBlock(params, gui_flag)
     traj = Trajectories(params)
 
     # traj_vec = traj.get_traj_line(0.0)
@@ -101,7 +102,7 @@ def init_params_floatingblock():
     return params
 
 
-def planar_pushing_floatingblock():
+def planar_pushing_floatingblock(gui_flag):
 
     params = init_params_floatingblock()
 
@@ -111,7 +112,7 @@ def planar_pushing_floatingblock():
     for run_idx in range(0, num_runs):
         params['init_ee_pos'][1] = init_ee_y[run_idx]
         if (first_run):
-            env = EnvFloatingArmBlock(params, True)
+            env = EnvFloatingArmBlock(params, gui_flag)
             env.simulate()
             first_run = False
         else:
@@ -127,9 +128,11 @@ def planar_pushing_floatingblock():
         # visualizer.plot_qs_push_dynamics_errors()
 
 def main():
-    planar_pushing_kukablock()
-    # planar_pushing_floatingblock()
 
+    # planar pushing of a block using a fixed KUKA arm / floating arm
+    gui_flag = True
+    planar_pushing_kukablock(gui_flag)
+    # planar_pushing_floatingblock(gui_flag)
 
 if __name__ == "__main__":
     main()
